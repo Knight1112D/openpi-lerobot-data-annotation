@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""验证稀疏人工标注和已经物化的 LeRobot v2.1 数据集。"""
+"""验证稀疏人工标注和已经物化的 LeRobot v2.1 数据集。
+
+Validate sparse human annotations and a materialized LeRobot v2.1 dataset.
+"""
 
 from __future__ import annotations
 
@@ -20,22 +23,28 @@ REQUIRED_MATERIALIZED = {
 
 
 def parse_args() -> argparse.Namespace:
-    """解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="验证 LeRobot 标注 bundle")
+    """解析命令行参数 / Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="验证 LeRobot 标注 bundle / Validate a LeRobot annotation bundle"
+    )
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--annotations", type=Path, required=True)
-    parser.add_argument("--allow-missing", action="store_true", help="允许只验证部分 episode")
-    parser.add_argument("--check-materialized", action="store_true", help="同时检查逐帧物化字段")
+    parser.add_argument(
+        "--allow-missing", action="store_true", help="允许只验证部分 episode / Allow partial episode coverage"
+    )
+    parser.add_argument(
+        "--check-materialized", action="store_true", help="同时检查逐帧物化字段 / Check materialized frame fields"
+    )
     return parser.parse_args()
 
 
 def read_jsonl(path: Path) -> list[dict]:
-    """读取 JSONL 文件。"""
+    """读取 JSONL 文件 / Read a JSONL file."""
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def require_english(value: object, label: str, allow_empty: bool = False) -> None:
-    """检查文本是否为英文 ASCII 文本。"""
+    """检查文本是否为英文 ASCII 文本 / Check that text uses English ASCII characters."""
     if not isinstance(value, str):
         raise ValueError(f"{label} 必须是字符串")
     if not allow_empty and not value.strip():
@@ -45,13 +54,16 @@ def require_english(value: object, label: str, allow_empty: bool = False) -> Non
 
 
 def load_episode_lengths(dataset_root: Path) -> dict[int, int]:
-    """读取 episode 长度。"""
+    """读取 episode 长度 / Read episode lengths."""
     rows = read_jsonl(dataset_root / "meta" / "episodes.jsonl")
     return {int(row["episode_index"]): int(row["length"]) for row in rows}
 
 
 def validate_sparse(dataset_root: Path, annotation_path: Path, allow_missing: bool) -> dict[int, dict]:
-    """验证稀疏标签并返回按 episode 索引的标签。"""
+    """验证稀疏标签并返回按 episode 索引的标签。
+
+    Validate sparse labels and return them indexed by episode.
+    """
     info = json.loads((dataset_root / "meta" / "info.json").read_text(encoding="utf-8"))
     if info.get("codebase_version") != "v2.1":
         raise ValueError(f"输入数据必须是 LeRobot v2.1，当前版本为 {info.get('codebase_version')!r}")
@@ -108,7 +120,10 @@ def validate_sparse(dataset_root: Path, annotation_path: Path, allow_missing: bo
 
 
 def validate_materialized(dataset_root: Path, annotations: dict[int, dict]) -> None:
-    """检查输出 parquet 中的逐帧字段和传播结果。"""
+    """检查输出 parquet 中的逐帧字段和传播结果。
+
+    Check materialized frame fields and propagation results in output parquet files.
+    """
     try:
         import pyarrow.parquet as parquet
     except ImportError as exc:
@@ -136,7 +151,7 @@ def validate_materialized(dataset_root: Path, annotations: dict[int, dict]) -> N
 
 
 def main() -> None:
-    """执行 bundle 验证。"""
+    """执行 bundle 验证 / Validate the annotation bundle."""
     args = parse_args()
     annotations = validate_sparse(args.dataset_root, args.annotations, args.allow_missing)
     if args.check_materialized:

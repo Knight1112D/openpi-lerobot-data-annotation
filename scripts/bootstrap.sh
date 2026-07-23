@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # 在项目主目录创建并安装本项目环境。
+# Create and install the project environment inside the project root.
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 UV_INDEX_URL="https://mirrors.aliyun.com/pypi/simple/"

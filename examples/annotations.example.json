@@ -1,5 +1,5 @@
 {
-  "_NOTICE": "仅用于展示格式，不对应真实数据，不能直接用于生产验证或训练。",
+  "_NOTICE": "仅用于展示格式，不对应真实数据，不能直接用于生产验证或训练。 / Format demonstration only; not real data and not for production validation or training.",
   "schema_version": "data_annotation.v1",
   "dataset": {
     "format": "lerobot_v2.1",

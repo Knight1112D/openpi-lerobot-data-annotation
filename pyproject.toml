@@ -1,7 +1,7 @@
 [project]
 name = "openpi-data-annotation"
 version = "0.1.0"
-description = "LeRobot v2.1 人工语义标注与数据集物化工具"
+description = "LeRobot v2.1 人工语义标注与数据集物化工具 / Human semantic annotation and dataset materialization tools"
 requires-python = ">=3.10"
 dependencies = [
     "pyarrow>=15.0",

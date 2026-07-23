@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""把关键帧标注传播为逐帧字段并生成新的 LeRobot v2.1 数据集。"""
+"""把关键帧标注传播为逐帧字段并生成新的 LeRobot v2.1 数据集。
+
+Propagate keyframe annotations to frame-level fields and create a new LeRobot v2.1 dataset.
+"""
 
 from __future__ import annotations
 
@@ -15,28 +18,35 @@ from validate_annotation_bundle import validate_sparse
 
 
 def parse_args() -> argparse.Namespace:
-    """解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="传播关键帧标签并生成 LeRobot v2.1 副本")
+    """解析命令行参数 / Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="传播关键帧标签并生成 LeRobot v2.1 副本 / Propagate labels into a new LeRobot v2.1 copy"
+    )
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--annotations", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--overwrite", action="store_true")
-    parser.add_argument("--allow-missing", action="store_true", help="未标注 episode 使用空上下文")
+    parser.add_argument(
+        "--allow-missing", action="store_true", help="未标注 episode 使用空上下文 / Use empty context for missing episodes"
+    )
     return parser.parse_args()
 
 
 def read_jsonl(path: Path) -> list[dict]:
-    """读取 JSONL 文件。"""
+    """读取 JSONL 文件 / Read a JSONL file."""
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def write_jsonl(path: Path, rows: list[dict]) -> None:
-    """写回 JSONL 文件。"""
+    """写回 JSONL 文件 / Write a JSONL file."""
     path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
 
 
 def frame_labels(annotation: dict | None, length: int) -> dict[str, list]:
-    """将一个 episode 的稀疏标注展开成逐帧列表。"""
+    """将一个 episode 的稀疏标注展开成逐帧列表。
+
+    Expand sparse annotations for one episode into frame-level lists.
+    """
     if annotation is None:
         annotation = {
             "success": 0,
@@ -76,7 +86,10 @@ def frame_labels(annotation: dict | None, length: int) -> dict[str, list]:
 
 
 def append_or_replace(table: pa.Table, name: str, values: list, arrow_type: pa.DataType) -> pa.Table:
-    """追加或替换列，便于重复生成输出副本。"""
+    """追加或替换列，便于重复生成输出副本。
+
+    Append or replace a column to support repeatable output generation.
+    """
     column = pa.array(values, type=arrow_type)
     if name in table.column_names:
         return table.set_column(table.column_names.index(name), name, column)
@@ -84,7 +97,10 @@ def append_or_replace(table: pa.Table, name: str, values: list, arrow_type: pa.D
 
 
 def update_tasks(root: Path, annotations: dict[int, dict], episode_rows: list[dict], info: dict) -> dict[str, int]:
-    """更新 v2.1 tasks.jsonl，并给每个 episode 分配 task_index。"""
+    """更新 v2.1 tasks.jsonl，并给每个 episode 分配 task_index。
+
+    Update v2.1 tasks.jsonl and assign a task_index to each episode.
+    """
     tasks_path = root / "meta" / "tasks.jsonl"
     old_tasks = read_jsonl(tasks_path) if tasks_path.exists() else []
     task_to_index = {str(row["task"]): int(row["task_index"]) for row in old_tasks}
@@ -109,7 +125,10 @@ def update_tasks(root: Path, annotations: dict[int, dict], episode_rows: list[di
 
 
 def update_info(root: Path, info: dict) -> None:
-    """声明新增字段并保持 LeRobot v2.1 版本。"""
+    """声明新增字段并保持 LeRobot v2.1 版本。
+
+    Declare added fields while preserving the LeRobot v2.1 version.
+    """
     features = info.setdefault("features", {})
     scalar_fields = {
         "response": "string",
@@ -126,7 +145,10 @@ def update_info(root: Path, info: dict) -> None:
 
 
 def materialize_episode(path: Path, annotation: dict | None, length: int, task_index: int | None) -> None:
-    """向一个 parquet 写入传播后的逐帧标签。"""
+    """向一个 parquet 写入传播后的逐帧标签。
+
+    Write propagated frame-level labels into one parquet file.
+    """
     table = parquet.read_table(path)
     if table.num_rows != length:
         raise ValueError(f"{path} 行数 {table.num_rows} 与 episode 长度 {length} 不一致")
@@ -147,7 +169,10 @@ def materialize_episode(path: Path, annotation: dict | None, length: int, task_i
 
 
 def main() -> None:
-    """复制数据集、传播标签并更新 LeRobot 元数据。"""
+    """复制数据集、传播标签并更新 LeRobot 元数据。
+
+    Copy the dataset, propagate labels, and update LeRobot metadata.
+    """
     args = parse_args()
     if args.output.exists():
         if not args.overwrite:
