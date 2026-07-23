@@ -68,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
         "validate-output", help="验证物化后的数据集 / Validate the materialized dataset"
     )
     add_common_arguments(output_validate)
+    output_validate.add_argument("--allow-missing", action="store_true")
     return parser
 
 
@@ -118,16 +119,16 @@ def main() -> None:
             command.append("--allow-missing")
         run_skill_script("propagate_annotations.py", command)
     elif args.command == "validate-output":
-        run_skill_script(
-            "validate_annotation_bundle.py",
-            [
-                "--dataset-root",
-                str(args.dataset_root),
-                "--annotations",
-                str(args.annotations),
-                "--check-materialized",
-            ],
-        )
+        command = [
+            "--dataset-root",
+            str(args.dataset_root),
+            "--annotations",
+            str(args.annotations),
+            "--check-materialized",
+        ]
+        if args.allow_missing:
+            command.append("--allow-missing")
+        run_skill_script("validate_annotation_bundle.py", command)
 
 
 if __name__ == "__main__":

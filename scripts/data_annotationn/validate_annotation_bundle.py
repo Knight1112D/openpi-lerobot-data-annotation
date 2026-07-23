@@ -53,6 +53,20 @@ def require_english(value: object, label: str, allow_empty: bool = False) -> Non
         raise ValueError(f"{label} 必须使用英文 ASCII 字符：{value!r}")
 
 
+def normalize_success(value: object, label: str) -> int:
+    """规范化 success / Normalize success to integer 0 or 1.
+
+    The canonical representation is integer 0/1. JSON booleans false/true are
+    accepted for convenience and are normalized to 0/1; uppercase TRUE/FALSE
+    strings are not valid JSON booleans and are rejected.
+    """
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int) and value in (0, 1):
+        return value
+    raise ValueError(f"{label} 必须是整数 0/1 或 JSON 布尔值 false/true / must be 0/1 or false/true")
+
+
 def load_episode_lengths(dataset_root: Path) -> dict[int, int]:
     """读取 episode 长度 / Read episode lengths."""
     rows = read_jsonl(dataset_root / "meta" / "episodes.jsonl")
@@ -82,9 +96,7 @@ def validate_sparse(dataset_root: Path, annotation_path: Path, allow_missing: bo
         if index in annotations:
             raise ValueError(f"episode {index} 重复标注")
         require_english(episode.get("task_prompt"), f"episode {index}.task_prompt")
-        success = episode.get("success")
-        if success not in (0, 1, False, True):
-            raise ValueError(f"episode {index}.success 必须是 0 或 1")
+        normalize_success(episode.get("success"), f"episode {index}.success")
         segments = episode.get("segments")
         if not isinstance(segments, list) or not segments:
             raise ValueError(f"episode {index}.segments 不能为空")

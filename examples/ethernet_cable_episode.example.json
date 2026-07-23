@@ -1,0 +1,50 @@
+{
+  "_NOTICE": "单 episode 网线任务示例模板，仅用于理解填写方式；请根据实际视频重新确认帧号、成功状态、memory 和干预区间。 / Single-episode Ethernet task example template for illustration only; verify all frame indices, success, memory, and intervention intervals against the actual video.",
+  "schema_version": "data_annotation.v1",
+  "dataset": {
+    "format": "lerobot_v2.1",
+    "source_root": "REPLACE_WITH_INPUT_DATASET_ROOT",
+    "fps": 30
+  },
+  "episodes": [
+    {
+      "episode_index": 0,
+      "task_prompt": "Pick up the Ethernet cable with the left gripper and pick up the Ethernet adapter with the right gripper. Insert the cable into the adapter and put them into the box.",
+      "success": 1,
+      "segments": [
+        {
+          "frame_index": 0,
+          "response": "Pick up the Ethernet cable with the left gripper.",
+          "memory": "The Ethernet cable and adapter are on the table. Neither object has been grasped yet."
+        },
+        {
+          "frame_index": 240,
+          "response": "Pick up the Ethernet adapter with the right gripper.",
+          "memory": "The left gripper holds the Ethernet cable. The Ethernet adapter remains on the table and is not grasped yet."
+        },
+        {
+          "frame_index": 540,
+          "response": "Insert the Ethernet cable into the adapter.",
+          "memory": "The left gripper holds the cable and the right gripper holds the adapter. The cable has not been inserted yet."
+        },
+        {
+          "frame_index": 1080,
+          "response": "Place the connected cable and adapter into the box.",
+          "memory": "The cable is inserted into the adapter. The connected assembly is held above the box."
+        },
+        {
+          "frame_index": 1650,
+          "response": "Release the connected assembly and retract both grippers.",
+          "memory": "The connected cable and adapter are inside the box. Both grippers are empty."
+        }
+      ],
+      "interventions": [
+        {
+          "start_frame": 760,
+          "end_frame": 820,
+          "intervention_reason": "The cable missed the adapter opening, so the operator corrected the alignment."
+        }
+      ]
+    }
+  ]
+}
