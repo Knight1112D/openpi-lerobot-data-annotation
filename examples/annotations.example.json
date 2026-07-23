@@ -1,0 +1,35 @@
+{
+  "_NOTICE": "仅用于展示格式，不对应真实数据，不能直接用于生产验证或训练。",
+  "schema_version": "data_annotation.v1",
+  "dataset": {
+    "format": "lerobot_v2.1",
+    "source_root": "REPLACE_WITH_INPUT_DATASET_ROOT",
+    "fps": 30
+  },
+  "episodes": [
+    {
+      "episode_index": 0,
+      "task_prompt": "Place the red block into the tray.",
+      "success": 1,
+      "segments": [
+        {
+          "frame_index": 0,
+          "response": "Reach for the red block with the gripper.",
+          "memory": "The red block is on the table and has not been grasped yet."
+        },
+        {
+          "frame_index": 120,
+          "response": "Place the red block into the tray.",
+          "memory": "The gripper holds the red block above the tray."
+        }
+      ],
+      "interventions": [
+        {
+          "start_frame": 150,
+          "end_frame": 160,
+          "intervention_reason": "The block was misaligned with the tray and the operator corrected the placement."
+        }
+      ]
+    }
+  ]
+}
