@@ -1,36 +1,22 @@
 {
-  "_NOTICE": "仅用于展示格式，不对应真实数据，不能直接用于生产验证或训练。以下所有以 _ 开头的字段都是说明，不是训练标签；如果下游 loader 不接受未知字段，请复制真实字段后删除这些说明。 / Format demonstration only; not real data and not for production validation or training. Fields starting with _ are documentation, not training labels; remove them if a downstream loader rejects unknown fields.",
-  "_TRAINING_FLOW": {
-    "task_prompt": "完整任务目标 g / Full task goal g. Used as the global task condition and written to LeRobot task metadata.",
-    "response": "当前子任务 l_t / Current executable subtask l_t. Produced by the high-level VLM and passed to the low-level VLA as the current language condition.",
-    "memory": "完整压缩记忆 m_{t+1} / Complete compressed memory m_{t+1}. Produced after incorporating the current observation and state; passed to the low-level VLA, then used as historical m_t for the next high-level update. Write the full useful state, not only a delta.",
-    "success": "episode 级成功标签 / Episode-level success label. Used for episode success, recap/value supervision, and statistics; it is not a per-frame reward.",
-    "interventions": "操作者接管区间 / Operator takeover intervals. Used as behavior-source metadata for DAgGER/KI analysis or optional conditional training; do not mix it into action loss by default.",
-    "frame_index": "语义状态变化的第一帧 / First frame where the semantic state has changed. It defines the start of a label interval; it is not an additional model target.",
-    "materialization": "传播脚本把 task_prompt 写入任务元数据，并把 response、memory、episode_success、is_intervention、intervention_start、intervention_reason 写入每一帧。 / The propagation script writes task_prompt to task metadata and materializes the other fields on every frame."
-  },
   "schema_version": "data_annotation.v1",
   "dataset": {
-    "_COMMENT": "只填写数据集格式、来源占位符和采样率；source_root 换成你自己的数据集路径。 / Dataset format, source placeholder, and sampling rate only; replace source_root with your own dataset path.",
     "format": "lerobot_v2.1",
     "source_root": "REPLACE_WITH_INPUT_DATASET_ROOT",
     "fps": 30
   },
   "episodes": [
     {
-      "_COMMENT": "一个 episode 一个对象。可以逐个 episode 填写同一个 JSON；未完成时使用 --allow-missing。 / One object per episode. Annotate episodes one by one in the same JSON; use --allow-missing while the bundle is incomplete.",
       "episode_index": 0,
       "task_prompt": "Place the red block into the tray.",
       "success": 1,
       "segments": [
         {
-          "_COMMENT": "response 是当前子任务 l_t；memory 是当前阶段完整的 m_{t+1}，不是新增差异。下一段会把这里的 memory 当作历史 m_t。 / response is the current subtask l_t; memory is the complete m_{t+1}, not only a delta. The next segment uses this memory as historical m_t.",
           "frame_index": 0,
           "response": "Reach for the red block with the gripper.",
           "memory": "The red block is on the table and has not been grasped yet."
         },
         {
-          "_COMMENT": "只有当可见状态或语义阶段发生变化时才新增段；不要每隔固定帧数重复。 / Add a segment only when the visible state or semantic stage changes; do not repeat labels at fixed intervals.",
           "frame_index": 120,
           "response": "Place the red block into the tray.",
           "memory": "The gripper holds the red block above the tray."
@@ -38,7 +24,6 @@
       ],
       "interventions": [
         {
-          "_COMMENT": "这是闭区间 [start_frame, end_frame]，不是单帧标记；start 是第一帧有效修正，end 是最后一帧修正。 / This is an inclusive interval [start_frame, end_frame], not a single-frame flag; start is the first effective correction and end is the last correction.",
           "start_frame": 150,
           "end_frame": 160,
           "intervention_reason": "The block was misaligned with the tray and the operator corrected the placement."

@@ -30,7 +30,7 @@ bash scripts/run.sh validate-output \
   --annotations /path/to/annotations.json
 ```
 
-展示格式请查看 [`examples/annotations.example.json`](examples/annotations.example.json)。该文件仅用于说明格式，不能直接用于生产验证或训练。
+展示格式请查看 [`examples/annotations.example.json`](examples/annotations.example.json) 和 [`examples/README.md`](examples/README.md)。这些文件仅用于说明格式，不能直接用于生产验证或训练。
 
 ### 字段语义
 
@@ -72,7 +72,7 @@ bash scripts/run.sh validate-output \
   --annotations /path/to/annotations.json
 ```
 
-See [`examples/annotations.example.json`](examples/annotations.example.json) for a clearly labeled format demonstration. It must not be used directly for production validation or training.
+See [`examples/annotations.example.json`](examples/annotations.example.json) and [`examples/README.md`](examples/README.md) for the format demonstration and field guide. They must not be used directly for production validation or training.
 
 ### Field semantics
 

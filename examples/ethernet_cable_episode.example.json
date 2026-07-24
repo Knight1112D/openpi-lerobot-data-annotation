@@ -1,5 +1,4 @@
 {
-  "_NOTICE": "单 episode 网线任务示例模板，仅用于理解填写方式；请根据实际视频重新确认帧号、成功状态、memory 和干预区间。 / Single-episode Ethernet task example template for illustration only; verify all frame indices, success, memory, and intervention intervals against the actual video.",
   "schema_version": "data_annotation.v1",
   "dataset": {
     "format": "lerobot_v2.1",
