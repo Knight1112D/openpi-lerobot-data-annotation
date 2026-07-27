@@ -96,6 +96,10 @@ def validate_sparse(dataset_root: Path, annotation_path: Path, allow_missing: bo
         if index in annotations:
             raise ValueError(f"episode {index} 重复标注")
         require_english(episode.get("task_prompt"), f"episode {index}.task_prompt")
+        if allow_missing and episode.get("success") is None:
+            # 模板会包含全部 episode；部分标注时跳过仍为 null 的未完成项。
+            # The generated template contains every episode; skip unfinished null entries in partial mode.
+            continue
         normalize_success(episode.get("success"), f"episode {index}.success")
         segments = episode.get("segments")
         if not isinstance(segments, list) or not segments:
