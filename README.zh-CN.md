@@ -84,4 +84,4 @@ bash scripts/run.sh propagate \
 
 [`examples/annotations.example.json`](examples/annotations.example.json) 是仅用于展示字段和传播效果的示例文件，文件名和内容都已明确标注为示例，不对应任何真实数据集，也不能直接作为生产标注提交。实际使用时请通过 `template` 命令针对自己的数据集生成文件。
 
-人工标注和物化数据集建议放在项目目录之外，并通过参数传入；`.gitignore` 会忽略本地生成的 `annotations/*.json` 和 `outputs/`。
+所有数据集、标注文件和输出目录都通过命令参数传入。完整的人工视频标注步骤请参阅项目根目录的 `README.md`。

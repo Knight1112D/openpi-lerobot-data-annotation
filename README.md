@@ -1,14 +1,14 @@
 # LeRobot v2.1 人工语义标注工具
 
-这是一个以人工视频标注为主的 LeRobot v2.1 数据标注项目。你对照完整 episode 视频，在语义状态发生变化的关键帧填写英文任务、子任务、MEM 和人工接管区间；脚本负责验证 JSON，并把稀疏标签传播到新的数据集副本。
+这是一个以人工视频标注为主的 LeRobot v2.1 数据标注项目。对照完整 episode 视频，在语义状态发生变化的关键帧填写英文任务、子任务、MEM 和人工接管区间；脚本负责验证 JSON，并把稀疏标签传播到新的数据集副本。
 
 This is a manual-first annotation workflow for LeRobot v2.1 datasets. You inspect the complete episode videos, write English task/subtask/MEM labels at semantic keyframes, validate the JSON, and materialize the labels into a new dataset copy.
 
 ## 先看结论 / Quick overview
 
-- 只做人工标注也可以，不需要 API、模型或 Gemini；
-- 不在采集阶段限制帧数，不抽帧，不重编码视频，不修改 action；
-- 原始数据集只读，传播结果必须写到新的 `--output` 目录；
+- 人工视频标注是主要使用方式；
+- 按完整 episode 视频定位帧号，不对视频设置采样帧数；
+- 传播结果写到新的 `--output` 目录；
 - 标注文本统一使用英文 ASCII；
 - `response` 是当前子任务 `l_t`；
 - `memory` 是完整的当前记忆 `m_{t+1}`，不是只写新增 delta；
@@ -16,9 +16,9 @@ This is a manual-first annotation workflow for LeRobot v2.1 datasets. You inspec
 
 ## 1. 目录怎么放 / Where to put the dataset
 
-建议把代码项目和数据集分开放置，避免把视频、parquet 和标注结果提交到 GitHub：
+工作目录可以按以下结构组织，命令中的路径替换为实际路径：
 
-Keep the code project and dataset separate so videos, parquet files, and local annotations are not committed to GitHub:
+Organize the working directory as follows and replace the command paths with actual paths:
 
 ```text
 workspace/
@@ -57,9 +57,9 @@ Check `meta/info.json`:
 - `fps` is needed when relating video time to frame indices;
 - episode numbers should match across `videos/`, `episodes.jsonl`, and parquet files.
 
-项目不会自动寻找数据集，也没有任何业务路径默认值；每次运行都显式传入路径。
+每次运行都显式传入数据集、标注文件和输出目录路径。
 
-The project never searches for a dataset automatically and has no business-path defaults; pass every path explicitly.
+Pass the dataset, annotation, and output paths explicitly for every command.
 
 ## 2. 安装项目环境 / Install the environment
 
@@ -75,9 +75,9 @@ bash scripts/run.sh --help
 
 ## 3. 生成标注模板 / Generate the annotation template
 
-模板生成只读取 `meta/`，不会读取或修改 action，也不会限制视频帧数：
+模板生成读取数据集元数据，并生成所有 episode 的标注对象：
 
-Template generation only reads `meta/`; it does not read or modify actions and does not limit video frames:
+Template generation reads dataset metadata and creates an annotation object for every episode:
 
 ```bash
 bash scripts/run.sh template \
@@ -91,9 +91,9 @@ The generated JSON contains all episodes. Complete one episode at a time and lea
 
 ## 4. 对照视频手工标注 / Annotate manually against the video
 
-这是本项目的主要流程。你需要使用能显示准确帧号的视频播放器或 VSCode 视频插件，对照 episode 的完整视频填写 JSON。项目本身不要求使用 API。
+这是本项目的主要流程。使用能显示准确帧号的视频播放器或 VSCode 视频插件，对照 episode 的完整视频填写 JSON。
 
-This is the main workflow. Use a frame-accurate video player or VSCode video extension to inspect the complete episode video and fill the JSON. The project does not require an API.
+This is the main workflow. Use a frame-accurate video player or VSCode video extension to inspect the complete episode video and fill the JSON.
 
 ### 4.1 找到 episode 对应的视频 / Find the episode video
 
