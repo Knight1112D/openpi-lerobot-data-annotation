@@ -1,4 +1,6 @@
-# OpenPI LeRobot 数据标注项目
+# LeRobot v2.1 人工语义标注工具
+
+[English README](README.md)
 
 本目录按照 `skills/data_annotationn` skill 建立，用于对 LeRobot v2.1 数据集进行人工稀疏标注、验证和逐帧物化。所有数据集、标注文件和输出目录都必须通过命令行显式传入；脚本没有业务路径默认值。原始数据不会被覆盖，物化结果由 `--output` 指定。
 
@@ -6,9 +8,9 @@
 
 - `success`：最终填写 `1` 或 `0`；也接受 JSON 的 `true`/`false`，脚本会转换成 `1`/`0`。模板中的 `null` 只表示尚未填写，不能通过最终验证；大写 `TRUE`/`FALSE` 不是合法 JSON 布尔值。
 - `response`：当前关键帧开始执行的子任务 `l_t`，使用可执行英文短句。
-- `memory`：当前阶段的完整压缩记忆 `m_{t+1}`，不要只写新增 delta。下一阶段把上一段 `memory` 当作历史记忆 `m_t`，再生成新的完整记忆。
-- `segments`：可以有多个关键帧段；每段从语义状态发生变化的第一帧开始，第一段必须是 `frame_index: 0`。
-- `interventions`：标记操作者实际改变机器人行为的连续区间 `[start_frame, end_frame]`，不是只标记一个帧，也不需要填写数值形式的“干预量”。
+- `memory_update`：当前阶段新增的记忆事实；传播时会自动和前面内容拼接成完整 `memory`。
+- `segments`：可以有多个关键帧段；手工填写 `time_seconds`，传播时按 `fps` 自动转换成 `frame_index`。
+- `interventions`：使用 `start_time_seconds` 和 `end_time_seconds` 标记操作者实际改变机器人行为的连续区间，不是只标记一个时间，也不需要填写数值形式的“干预量”。
 
 可以按 episode 逐个完成同一个 JSON 文件。尚未完成全部 episode 时，验证命令加 `--allow-missing`；全部完成后再进行不带该参数的正式验证和传播。
 
@@ -31,7 +33,7 @@ bash scripts/run.sh template \
   --output /path/to/annotations.json
 ```
 
-用 VSCode 打开 `--output` 指定的文件，按照 skill 规范填写英文的 `task_prompt`、`response`、`memory`、`success` 和可选的 `interventions`。人工只填写语义发生变化的关键帧，第一段必须从 `frame_index: 0` 开始。
+用 VSCode 打开 `--output` 指定的文件，填写英文的 `task_prompt`、`response`、`memory_update`、`success` 和可选的 `interventions`。人工只填写语义发生变化的关键帧，第一段必须从 `time_seconds: 0.0` 开始。视频播放器只有秒数时，直接把秒数写入 `time_seconds`，脚本会根据数据集 `fps` 自动转换帧号。
 
 填写完成后验证：
 
@@ -41,7 +43,7 @@ bash scripts/run.sh validate \
   --annotations /path/to/annotations.json
 ```
 
-验证通过后生成新数据集副本：
+全部 episode 标注完成并且正式验证通过后，运行下面的命令生成最终的 LeRobot v2.1 数据集：
 
 ```bash
 bash scripts/run.sh propagate \
@@ -50,6 +52,8 @@ bash scripts/run.sh propagate \
   --output /path/to/annotated_dataset
 ```
 
+`--output` 指定的目录就是新的最终数据集。脚本会复制数据集文件，并把 `time_seconds` 转换得到的关键帧标签传播到每一帧；输入数据集不会作为输出目录使用。
+
 最后检查逐帧字段：
 
 ```bash
@@ -57,6 +61,12 @@ bash scripts/run.sh validate-output \
   --dataset-root /path/to/annotated_dataset \
   --annotations /path/to/annotations.json
 ```
+
+这一步用于确认最终 LeRobot 数据集中的 parquet 已经包含 `response`、`memory`、`episode_success` 和干预字段。
+
+## VLM 辅助标注
+
+VLM/API 只作为最后的可选辅助方式，不是手工标注的前置条件。如果使用 VLM 生成草稿，仍然要人工对照完整视频确认 `time_seconds`、语义变化、英文文本、`success` 和 `interventions`，然后使用上面的 `validate`、`propagate`、`validate-output` 流程生成最终数据集。
 
 ## 参数说明
 

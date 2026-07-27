@@ -12,35 +12,35 @@
       "success": 1,
       "segments": [
         {
-          "frame_index": 0,
+          "time_seconds": 0.0,
           "response": "Pick up the Ethernet cable with the left gripper.",
-          "memory": "The Ethernet cable and adapter are on the table. Neither object has been grasped yet."
+          "memory_update": "The Ethernet cable and adapter start on the table."
         },
         {
-          "frame_index": 240,
+          "time_seconds": 8.0,
           "response": "Pick up the Ethernet adapter with the right gripper.",
-          "memory": "The left gripper holds the Ethernet cable. The Ethernet adapter remains on the table and is not grasped yet."
+          "memory_update": "The left gripper now holds the Ethernet cable."
         },
         {
-          "frame_index": 540,
+          "time_seconds": 18.0,
           "response": "Insert the Ethernet cable into the adapter.",
-          "memory": "The left gripper holds the cable and the right gripper holds the adapter. The cable has not been inserted yet."
+          "memory_update": "The right gripper now holds the Ethernet adapter."
         },
         {
-          "frame_index": 1080,
+          "time_seconds": 36.0,
           "response": "Place the connected cable and adapter into the box.",
-          "memory": "The cable is inserted into the adapter. The connected assembly is held above the box."
+          "memory_update": "The cable is now inserted into the adapter, and the connected assembly is held above the box."
         },
         {
-          "frame_index": 1650,
+          "time_seconds": 55.0,
           "response": "Release the connected assembly and retract both grippers.",
-          "memory": "The connected cable and adapter are inside the box. Both grippers are empty."
+          "memory_update": "The connected cable and adapter are now inside the box. Both grippers are empty."
         }
       ],
       "interventions": [
         {
-          "start_frame": 760,
-          "end_frame": 820,
+          "start_time_seconds": 25.333,
+          "end_time_seconds": 27.333,
           "intervention_reason": "The cable missed the adapter opening, so the operator corrected the alignment."
         }
       ]

@@ -50,9 +50,9 @@ def main() -> None:
                 "success": None,
                 "segments": [
                     {
-                        "frame_index": 0,
+                        "time_seconds": 0.0,
                         "response": "",
-                        "memory": "",
+                        "memory_update": "",
                     }
                 ],
                 "interventions": [],
@@ -62,7 +62,7 @@ def main() -> None:
         "schema_version": "data_annotation.v1",
         "dataset": {
             "format": "lerobot_v2.1",
-            "source_root": str(args.dataset_root.resolve()),
+            "source_root": "REPLACE_WITH_INPUT_DATASET_ROOT",
             "fps": info.get("fps"),
         },
         "episodes": episodes,

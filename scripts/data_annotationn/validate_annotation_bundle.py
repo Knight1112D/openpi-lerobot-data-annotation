@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 from pathlib import Path
 
@@ -73,6 +74,61 @@ def load_episode_lengths(dataset_root: Path) -> dict[int, int]:
     return {int(row["episode_index"]): int(row["length"]) for row in rows}
 
 
+def frame_from_seconds(value: object, fps: object, label: str) -> int:
+    """将视频秒数转换为最近帧 / Convert video seconds to the nearest frame."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label} 必须是非负数字 / must be a non-negative number")
+    if not isinstance(fps, (int, float)) or isinstance(fps, bool) or fps <= 0:
+        raise ValueError("数据集 meta/info.json 的 fps 必须是正数 / dataset fps must be positive")
+    seconds = float(value)
+    if not math.isfinite(seconds) or seconds < 0:
+        raise ValueError(f"{label} 必须是有限的非负数字 / must be finite and non-negative")
+    return int(math.floor(seconds * float(fps) + 0.5))
+
+
+def resolve_frame(item: dict, fps: object, frame_key: str, seconds_key: str, label: str) -> int:
+    """解析 frame_index 或秒数输入 / Resolve a frame index or seconds input."""
+    has_frame = frame_key in item
+    has_seconds = seconds_key in item
+    if not has_frame and not has_seconds:
+        raise ValueError(f"{label} 必须填写 {frame_key} 或 {seconds_key}")
+    converted = frame_from_seconds(item[seconds_key], fps, f"{label}.{seconds_key}") if has_seconds else None
+    if has_frame:
+        frame = item[frame_key]
+        if not isinstance(frame, int) or isinstance(frame, bool) or frame < 0:
+            raise ValueError(f"{label}.{frame_key} 必须是非负整数 / must be a non-negative integer")
+        if converted is not None and frame != converted:
+            raise ValueError(f"{label} 的 frame_index 与 time_seconds 不一致 / frame and seconds disagree")
+        return frame
+    return int(converted)
+
+
+def materialize_memory_segments(segments: list[dict]) -> list[dict]:
+    """将 memory_update 拼接为完整 memory / Expand memory updates into complete memories."""
+    previous = ""
+    materialized: list[dict] = []
+    for index, segment in enumerate(segments):
+        has_memory = "memory" in segment
+        has_update = "memory_update" in segment
+        if has_memory == has_update:
+            raise ValueError(
+                f"segments[{index}] 必须填写 memory 或 memory_update 其中一个 / provide exactly one"
+            )
+        if has_update:
+            update = segment["memory_update"]
+            require_english(update, f"segments[{index}].memory_update")
+            current = f"{previous} {update.strip()}".strip()
+        else:
+            require_english(segment["memory"], f"segments[{index}].memory")
+            current = segment["memory"].strip()
+        normalized = dict(segment)
+        normalized.pop("memory_update", None)
+        normalized["memory"] = current
+        materialized.append(normalized)
+        previous = current
+    return materialized
+
+
 def validate_sparse(dataset_root: Path, annotation_path: Path, allow_missing: bool) -> dict[int, dict]:
     """验证稀疏标签并返回按 episode 索引的标签。
 
@@ -85,6 +141,7 @@ def validate_sparse(dataset_root: Path, annotation_path: Path, allow_missing: bo
     if bundle.get("schema_version") != "data_annotation.v1":
         raise ValueError("annotations.json 的 schema_version 必须是 data_annotation.v1")
     lengths = load_episode_lengths(dataset_root)
+    fps = info.get("fps")
     rows = bundle.get("episodes")
     if not isinstance(rows, list) or not rows:
         raise ValueError("annotations.json 必须包含非空 episodes 列表")
@@ -104,30 +161,67 @@ def validate_sparse(dataset_root: Path, annotation_path: Path, allow_missing: bo
         segments = episode.get("segments")
         if not isinstance(segments, list) or not segments:
             raise ValueError(f"episode {index}.segments 不能为空")
+        normalized_segments: list[dict] = []
         previous = -1
         for segment_index, segment in enumerate(segments):
-            frame = segment.get("frame_index")
-            if not isinstance(frame, int) or frame <= previous:
+            normalized_segment = dict(segment)
+            frame = resolve_frame(
+                normalized_segment,
+                fps,
+                "frame_index",
+                "time_seconds",
+                f"episode {index}.segments[{segment_index}]",
+            )
+            normalized_segment["frame_index"] = frame
+            if frame <= previous:
                 raise ValueError(f"episode {index} 的关键帧必须严格递增")
             if segment_index == 0 and frame != 0:
                 raise ValueError(f"episode {index} 的第一段必须从 frame 0 开始")
             if frame >= lengths[index]:
                 raise ValueError(f"episode {index} 的关键帧 {frame} 超出长度 {lengths[index]}")
-            require_english(segment.get("response"), f"episode {index}.segments[{segment_index}].response")
-            require_english(segment.get("memory"), f"episode {index}.segments[{segment_index}].memory")
+            require_english(
+                normalized_segment.get("response"),
+                f"episode {index}.segments[{segment_index}].response",
+            )
+            normalized_segments.append(normalized_segment)
             previous = frame
+        normalized_segments = materialize_memory_segments(normalized_segments)
+        normalized_episode = dict(episode)
+        normalized_episode["segments"] = normalized_segments
         interventions = episode.get("interventions", [])
+        normalized_interventions: list[dict] = []
         previous_end = -1
-        for item in sorted(interventions, key=lambda value: int(value["start_frame"])):
-            start = item.get("start_frame")
-            end = item.get("end_frame")
-            if not isinstance(start, int) or not isinstance(end, int) or start < 0 or end < start:
+        for item_index, item in enumerate(interventions):
+            normalized_item = dict(item)
+            start = resolve_frame(
+                normalized_item,
+                fps,
+                "start_frame",
+                "start_time_seconds",
+                f"episode {index}.interventions[{item_index}]",
+            )
+            end = resolve_frame(
+                normalized_item,
+                fps,
+                "end_frame",
+                "end_time_seconds",
+                f"episode {index}.interventions[{item_index}]",
+            )
+            if end < start:
                 raise ValueError(f"episode {index} 的接管区间非法")
+            normalized_item["start_frame"] = start
+            normalized_item["end_frame"] = end
+            normalized_interventions.append(normalized_item)
+        normalized_interventions.sort(key=lambda value: value["start_frame"])
+        for item in normalized_interventions:
+            start = item["start_frame"]
+            end = item["end_frame"]
             if end >= lengths[index] or start <= previous_end:
                 raise ValueError(f"episode {index} 的接管区间越界或重叠")
             require_english(item.get("intervention_reason"), f"episode {index}.interventions.reason")
             previous_end = end
-        annotations[index] = episode
+        normalized_episode["interventions"] = normalized_interventions
+        annotations[index] = normalized_episode
     if not allow_missing and set(annotations) != set(lengths):
         missing = sorted(set(lengths) - set(annotations))
         extra = sorted(set(annotations) - set(lengths))
