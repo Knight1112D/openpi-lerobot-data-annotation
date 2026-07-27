@@ -1,153 +1,238 @@
-# OpenPI LeRobot Data Annotation
+# LeRobot v2.1 人工语义标注工具
 
-一个面向 LeRobot v2.1 数据集的人工语义标注工具。它把人工填写的稀疏关键帧标签，转换成可供 OpenPI/OpenTau 训练或分析使用的逐帧字段。
+这是一个以人工视频标注为主的 LeRobot v2.1 数据标注项目。你对照完整 episode 视频，在语义状态发生变化的关键帧填写英文任务、子任务、MEM 和人工接管区间；脚本负责验证 JSON，并把稀疏标签传播到新的数据集副本。
 
-This project provides a human-in-the-loop annotation workflow for LeRobot v2.1 datasets. It converts sparse keyframe labels into frame-level fields for OpenPI/OpenTau training and analysis.
+This is a manual-first annotation workflow for LeRobot v2.1 datasets. You inspect the complete episode videos, write English task/subtask/MEM labels at semantic keyframes, validate the JSON, and materialize the labels into a new dataset copy.
 
-## 你将得到什么 / What this project does
+## 先看结论 / Quick overview
 
-- 生成可在 VSCode 中编辑的 JSON 标注模板；
-- 按 episode 标注总任务、当前子任务、MEM 和人工接管；
-- 严格检查帧号、英文文本、成功标签和接管区间；
-- 不修改原始数据，复制出一个新的带语义字段的数据集；
-- 将 `response`、`memory`、`episode_success` 和干预字段写入每一帧。
+- 只做人工标注也可以，不需要 API、模型或 Gemini；
+- 不在采集阶段限制帧数，不抽帧，不重编码视频，不修改 action；
+- 原始数据集只读，传播结果必须写到新的 `--output` 目录；
+- 标注文本统一使用英文 ASCII；
+- `response` 是当前子任务 `l_t`；
+- `memory` 是完整的当前记忆 `m_{t+1}`，不是只写新增 delta；
+- `interventions` 是连续接管区间，不是只标记一个帧。
 
-- Generate a VSCode-editable JSON annotation template.
-- Annotate task goals, current subtasks, MEM state, and operator takeovers episode by episode.
-- Validate frame indices, English text, success labels, and intervention intervals.
-- Preserve the raw dataset and create a new annotated copy.
-- Materialize `response`, `memory`, `episode_success`, and intervention fields on every frame.
+## 1. 目录怎么放 / Where to put the dataset
 
-## 1. 安装环境 / Install
+建议把代码项目和数据集分开放置，避免把视频、parquet 和标注结果提交到 GitHub：
 
-要求：Linux/macOS shell、Python 3.10+、[uv](https://docs.astral.sh/uv/)。环境会创建在项目自己的 `.venv` 中。
-
-Requirements: a Linux/macOS shell, Python 3.10+, and [uv](https://docs.astral.sh/uv/). The virtual environment is created inside this project at `.venv`.
-
-```bash
-cd /path/to/data_annotation_project
-bash scripts/bootstrap.sh
-```
-
-检查入口是否可用：
-
-```bash
-bash scripts/run.sh --help
-```
-
-Check the command entrypoint:
-
-```bash
-bash scripts/run.sh --help
-```
-
-## 2. 准备输入数据 / Prepare the input dataset
-
-输入必须是 LeRobot v2.1 数据集，至少包含：
-
-The input must be a LeRobot v2.1 dataset containing at least:
+Keep the code project and dataset separate so videos, parquet files, and local annotations are not committed to GitHub:
 
 ```text
-input_dataset/
+workspace/
+├── data_annotation_project/
+├── datasets/
+│   └── raw_lerobot_v21/
+└── annotation_work/
+    ├── annotations.json
+    └── annotated_dataset/
+```
+
+`raw_lerobot_v21/` 必须是 LeRobot v2.1 数据集，至少包含：
+
+`raw_lerobot_v21/` must be a LeRobot v2.1 dataset containing at least:
+
+```text
+raw_lerobot_v21/
 ├── meta/info.json
 ├── meta/episodes.jsonl
 ├── meta/tasks.jsonl
 ├── meta/episodes_stats.jsonl
 ├── data/chunk-*/episode_*.parquet
-└── videos/...
+└── videos/
+    └── chunk-*/<video_key>/episode_*.mp4
 ```
 
-`meta/info.json` 中的 `codebase_version` 必须是 `v2.1`。项目不会自动寻找或默认使用任何数据集路径。
+检查 `meta/info.json`：
 
-The `codebase_version` in `meta/info.json` must be `v2.1`. No dataset path is discovered or assumed automatically.
+Check `meta/info.json`:
 
-## 3. 生成标注模板 / Generate a template
+- `codebase_version` 必须是 `v2.1`；
+- `fps` 是视频和帧号换算的重要信息；
+- `videos/` 中的 episode 编号应与 `episodes.jsonl`、parquet 文件一致。
 
-必须显式传入输入数据集和模板输出文件：
+- `codebase_version` must be `v2.1`;
+- `fps` is needed when relating video time to frame indices;
+- episode numbers should match across `videos/`, `episodes.jsonl`, and parquet files.
 
-Both the dataset root and output annotation path are required:
+项目不会自动寻找数据集，也没有任何业务路径默认值；每次运行都显式传入路径。
+
+The project never searches for a dataset automatically and has no business-path defaults; pass every path explicitly.
+
+## 2. 安装项目环境 / Install the environment
+
+要求 Python 3.10+、`uv` 和 Linux/macOS shell。环境会创建在项目目录自己的 `.venv` 中。
+
+Requirements: Python 3.10+, `uv`, and a Linux/macOS shell. The environment is created in the project's own `.venv` directory.
+
+```bash
+cd /path/to/data_annotation_project
+bash scripts/bootstrap.sh
+bash scripts/run.sh --help
+```
+
+## 3. 生成标注模板 / Generate the annotation template
+
+模板生成只读取 `meta/`，不会读取或修改 action，也不会限制视频帧数：
+
+Template generation only reads `meta/`; it does not read or modify actions and does not limit video frames:
 
 ```bash
 bash scripts/run.sh template \
-  --dataset-root /path/to/input_dataset \
-  --output /path/to/annotations.json
+  --dataset-root /path/to/datasets/raw_lerobot_v21 \
+  --output /path/to/annotation_work/annotations.json
 ```
 
-生成的文件会包含所有 episode。你可以一次只填写一个 episode，其他未完成项保持 `success: null`。
+生成的 JSON 会包含所有 episode。你可以一次只完成一个 episode，未完成项先保留 `success: null`。
 
-The generated file contains all episodes. You may complete one episode at a time and leave unfinished episodes as `success: null`.
+The generated JSON contains all episodes. Complete one episode at a time and leave unfinished entries as `success: null`.
 
-## 4. 填写 JSON / Fill the JSON
+## 4. 对照视频手工标注 / Annotate manually against the video
 
-推荐使用 VSCode 打开 `annotations.json`。JSON 中只保留真实标注字段，字段解释请看 [`examples/README.md`](examples/README.md)。网线任务示例请看 [`examples/ethernet_cable_episode.example.json`](examples/ethernet_cable_episode.example.json)。
+这是本项目的主要流程。你需要使用能显示准确帧号的视频播放器或 VSCode 视频插件，对照 episode 的完整视频填写 JSON。项目本身不要求使用 API。
 
-Open `annotations.json` in VSCode. The JSON files contain only annotation fields; see [`examples/README.md`](examples/README.md) for the field guide and [`examples/ethernet_cable_episode.example.json`](examples/ethernet_cable_episode.example.json) for the Ethernet example.
+This is the main workflow. Use a frame-accurate video player or VSCode video extension to inspect the complete episode video and fill the JSON. The project does not require an API.
 
-一个最小的 episode 结构如下：
+### 4.1 找到 episode 对应的视频 / Find the episode video
 
-A minimal episode structure looks like this:
+以 `episode_index: 0` 为例：
+
+1. 在 `meta/episodes.jsonl` 找到 episode 0 的长度和任务；
+2. 在 `videos/chunk-*/<video_key>/episode_000000.mp4` 找到对应视频；
+3. 优先使用主视角视频观察整体任务，必要时对照腕部相机；
+4. 记录视频播放器显示的帧号，或根据 `fps` 将时间换算为帧号；
+5. 关键帧必须与数据中的 `frame_index` 对齐，不要凭时间大概估计。
+
+For `episode_index: 0`:
+
+1. Find its length and task in `meta/episodes.jsonl`;
+2. Open `videos/chunk-*/<video_key>/episode_000000.mp4`;
+3. Start with the main camera and use wrist cameras when needed;
+4. Record the player frame index, or convert time using `fps`;
+5. Align labels with the dataset `frame_index`, not an approximate timestamp.
+
+### 4.2 先填写 episode 级字段 / Fill episode-level fields first
 
 ```json
 {
   "episode_index": 0,
-  "task_prompt": "Place the red block into the tray.",
+  "task_prompt": "Pick up the Ethernet cable with the left gripper and pick up the Ethernet adapter with the right gripper. Insert the cable into the adapter and put them into the box.",
   "success": 1,
-  "segments": [
-    {
-      "frame_index": 0,
-      "response": "Reach for the red block with the gripper.",
-      "memory": "The red block is on the table and has not been grasped yet."
-    },
-    {
-      "frame_index": 120,
-      "response": "Place the red block into the tray.",
-      "memory": "The gripper holds the red block above the tray."
-    }
-  ],
+  "segments": [],
   "interventions": []
 }
 ```
 
-### 字段含义 / Field meanings
+- `episode_index`：必须和数据集中的编号一致；
+- `task_prompt`：完整任务目标，使用英文现在时和明确动作；
+- `success`：episode 最终成功填 `1`，失败填 `0`；也接受 JSON `true/false`，但推荐 `1/0`；
+- `success: null`：只代表还没填完，最终验证不能保留；
+- `interventions`：没有人工接管就填空数组 `[]`。
 
-| 字段 / Field | 填写内容 / What to write | 训练流程对应 / Training role |
-|---|---|---|
-| `task_prompt` | 完整任务目标，英文 / Full task goal in English | 总任务 `g`，写入任务元数据，并作为 VLM/VLA 条件 / Global goal `g`, task metadata and model condition |
-| `success` | `1` 成功，`0` 失败；也接受 `true/false` / `1` success, `0` failure; `true/false` accepted | episode 标签，不是逐帧 reward / Episode label, not a frame reward |
-| `frame_index` | 语义状态真正变化的第一帧 / First frame after semantic change | 定义标签区间起点 / Defines the interval start |
-| `response` | 当前可执行子任务，英文 / Current executable subtask in English | 当前子任务 `l_t`，传给 low-level VLA / Current subtask `l_t` for the low-level VLA |
-| `memory` | 完整压缩记忆，英文 / Complete compressed memory in English | 当前记忆 `m_{t+1}`，下一阶段作为历史 `m_t` / Current memory `m_{t+1}`, next stage history `m_t` |
-| `interventions` | 接管区间和英文原因 / Takeover interval and English reason | DAgGER/KI/行为来源分析，可选使用 / Optional DAgGER/KI and behavior-source metadata |
+- `episode_index`: must match the dataset episode index;
+- `task_prompt`: the complete goal in clear English present-tense actions;
+- `success`: `1` for success and `0` for failure; JSON `true/false` are accepted, but `1/0` is recommended;
+- `success: null`: means unfinished and cannot remain in final validation;
+- `interventions`: use `[]` when there was no operator takeover.
 
-### MEM 的填写逻辑 / MEM logic
+### 4.3 在视频中找关键帧 / Find semantic keyframes
 
-`memory` 不要只填写“新增的一句话”。应填写当前阶段完整的、对未来决策有用的状态。
+第一段必须从 `frame_index: 0` 开始。播放视频时，只在“语义状态已经改变”的第一帧暂停并新增一个 segment。
 
-Do not write only a one-line memory delta. Write the complete future-useful state for the current stage.
+The first segment must start at `frame_index: 0`. While playing the video, pause and add a segment only at the first frame where the semantic state has changed.
+
+应该标注的时刻：
+
+Good moments to label:
+
+- 抓取已经成立，而不是夹爪刚开始靠近；
+- 第二个物体已经抓住，而不是手正在移动；
+- 插入已经完成，而不是刚对准接口；
+- 物体已经进入盒子，而不是正在移动到盒子上方；
+- 错误已经修正并恢复到新的可执行状态。
+
+- A grasp is established, not when the gripper merely starts approaching;
+- The second object is held, not while the hand is still moving;
+- Insertion is complete, not when the connector is merely aligned;
+- The object is inside the box, not merely above the box;
+- An error has been corrected and the robot has entered a new executable state.
+
+不要按固定间隔写 `frame_index: 0, 30, 60...`。一个 episode 可以有很多 segment，也可以只有一个，但每个新增段都必须对应真实语义变化，帧号严格递增。
+
+Do not write labels at fixed intervals such as `0, 30, 60...`. An episode may have many segments or only one; every segment must represent a real semantic change and frame indices must increase strictly.
+
+### 4.4 填写 response：当前子任务 / Fill response: the current subtask
+
+`response` 是当前阶段应该完成的一个可执行子任务 `l_t`，对应 high-level VLM 输出给 low-level VLA 的当前语言目标。
+
+`response` is the executable subtask `l_t` for the current stage, corresponding to the language goal produced by the high-level planner for the low-level policy.
+
+推荐写法：
+
+Recommended style:
+
+```text
+Pick up the Ethernet cable with the left gripper.
+Pick up the Ethernet adapter with the right gripper.
+Insert the Ethernet cable into the adapter.
+Place the connected cable and adapter into the box.
+```
+
+不要写：
+
+Avoid:
+
+```text
+Continue.
+Do it.
+Looks good.
+Move the arm.
+```
+
+每段 `response` 只描述当前子任务，不要把完整任务再次复制进去，也不要写结果预测。
+
+Each `response` should describe only the current subtask, not repeat the full task or predict the result.
+
+### 4.5 填写 memory：完整的 m_{t+1} / Fill memory: complete m_{t+1}
+
+`memory` 不是动作日志，也不是只写这一帧新增的 delta。它要写成当前阶段结束后，对未来决策仍有用的完整压缩状态。
+
+`memory` is not an action log and not only a one-line delta. Write the complete compressed state that remains useful for future decisions after the current stage.
+
+高层记忆关系可以理解为：
+
+The high-level memory update can be understood as:
 
 ```text
 m_{t+1} = Planner(o_t, g, l_0...l_t, success_history, m_t)
 ```
 
-JSON 中不需要单独添加 `m_t` 字段：上一段的 `memory` 就是下一段的历史 `m_t`。第一段可以把 `memory` 写成初始状态。
+JSON 不需要额外填写 `m_t`：上一段的 `memory` 就是下一段的历史 `m_t`。每一段都要让自己的 `memory` 在脱离上一段文字时仍然可读。
 
-The JSON does not need a separate `m_t` field: the previous segment's `memory` becomes the next segment's historical `m_t`. The first segment may describe the initial state.
+The JSON does not need a separate `m_t`: the previous segment's `memory` becomes the next segment's historical `m_t`. Each memory should remain understandable without relying on the previous sentence.
 
-### segments 可以有多少段？ / How many segments?
+例如：
 
-可以有任意多段，但只在语义状态改变时增加。例如抓取成立、另一个物体被抓住、插入完成、物体进入盒子、错误恢复完成。不要每隔固定 30 帧重复填写。
+Example:
 
-Use as many segments as needed, but add one only when the semantic state changes: a grasp becomes established, another object is grasped, insertion completes, the object enters the box, or recovery completes. Do not repeat labels every 30 frames.
+```text
+Previous memory m_t:
+The left gripper holds the Ethernet cable.
 
-第一段必须从 `frame_index: 0` 开始，后续帧号严格递增。
+New fact:
+The right gripper has grasped the Ethernet adapter.
 
-The first segment must start at `frame_index: 0`, and later frame indices must be strictly increasing.
+Correct m_{t+1}:
+The left gripper holds the Ethernet cable and the right gripper holds the Ethernet adapter. The cable has not been inserted yet.
+```
 
-### interventions 怎么填写？ / How to annotate interventions
+### 4.6 填写 interventions：连续接管区间 / Fill interventions: continuous takeover intervals
 
-接管是闭区间 `[start_frame, end_frame]`，不是单独一帧：
+人工接管不是只标开始那一帧，而是一个闭区间 `[start_frame, end_frame]`：
 
-An intervention is an inclusive interval `[start_frame, end_frame]`, not a single frame:
+An operator takeover is not only the start frame; it is an inclusive interval `[start_frame, end_frame]`:
 
 ```json
 "interventions": [
@@ -160,142 +245,140 @@ An intervention is an inclusive interval `[start_frame, end_frame]`, not a singl
 ```
 
 - `start_frame`：操作者第一次有效改变机器人行为的帧；
-- `end_frame`：错误修正完成、恢复自主执行前的最后一帧；
-- 没有接管时使用空数组 `[]`；
-- 不需要填写数值形式的“干预量”；
-- 多次不重叠接管就写多个对象。
+- `end_frame`：错误修正完成、恢复自主执行前的最后一帧；如果没有恢复，就填写 episode 最后一帧；
+- `intervention_reason`：简短、具体的英文原因；
+- 多次接管写多个不重叠对象；
+- 没有接管填写 `[]`；
+- 没有“干预量”数值字段。
 
-- `start_frame`: first frame where the operator effectively changes robot behavior;
-- `end_frame`: last correction frame before autonomous execution resumes;
-- use `[]` when there is no takeover;
-- no numeric intervention amount is required;
-- write multiple objects for multiple non-overlapping intervals.
+- `start_frame`: the first frame where the operator effectively changes robot behavior;
+- `end_frame`: the last correction frame before autonomous execution resumes, or the final episode frame if it never resumes;
+- `intervention_reason`: a short, specific English reason;
+- Use multiple non-overlapping objects for multiple takeovers;
+- Use `[]` when there was no takeover;
+- There is no numeric intervention amount field.
 
-## 5. 部分验证：按 episode 工作 / Partial validation: work episode by episode
+## 5. 部分验证：标完一个 episode 就检查 / Validate after each episode
 
-如果只完成了部分 episode，使用 `--allow-missing`：
+生成模板后，每完成一个 episode 就可以保存并检查。因为其他 episode 仍然是 `success: null`，阶段性验证需要 `--allow-missing`：
 
-If only some episodes are complete, use `--allow-missing`:
+After completing each episode, save and validate it. Since other episodes remain `success: null`, use `--allow-missing` for intermediate validation:
 
 ```bash
 bash scripts/run.sh validate \
-  --dataset-root /path/to/input_dataset \
-  --annotations /path/to/annotations.json \
+  --dataset-root /path/to/datasets/raw_lerobot_v21 \
+  --annotations /path/to/annotation_work/annotations.json \
   --allow-missing
 ```
 
-此模式会跳过 `success: null` 的未完成 episode，只检查已经填写完成的 episode。注意：如果某个 episode 已经填写了 `success`，但 `response` 或 `memory` 还是空字符串，验证器会报错，需要补齐。
+该模式会跳过 `success: null` 的未完成 episode，但会严格检查已填写的 episode。如果一个 episode 已经填了 `success`，但 `response` 或 `memory` 为空，验证会失败。
 
-This mode skips unfinished episodes whose `success` is `null` and validates completed episodes. If an episode has a non-null `success` but empty `response` or `memory`, validation fails and the episode must be completed.
+This mode skips unfinished `success: null` episodes but strictly validates completed episodes. If an episode has a non-null `success` but an empty `response` or `memory`, validation fails.
 
-## 6. 全量验证 / Final validation
+## 6. 全部标完后的正式验证 / Final validation
 
-全部 episode 都填写完成后，不要使用 `--allow-missing`：
+全部 episode 都完成后，去掉 `--allow-missing`：
 
-After every episode is complete, validate without `--allow-missing`:
+After all episodes are complete, remove `--allow-missing`:
 
 ```bash
 bash scripts/run.sh validate \
-  --dataset-root /path/to/input_dataset \
-  --annotations /path/to/annotations.json
+  --dataset-root /path/to/datasets/raw_lerobot_v21 \
+  --annotations /path/to/annotation_work/annotations.json
 ```
 
-验证器会检查：
+验证器会检查：数据集版本、episode 编号、成功标签、英文 ASCII 文本、关键帧单调性、帧号边界、干预区间越界和重叠。
 
-The validator checks:
+The validator checks the dataset version, episode IDs, success labels, English ASCII text, keyframe ordering, frame bounds, and intervention overlap/bounds.
 
-- LeRobot v2.1 版本；
-- episode 是否存在且没有重复；
-- `success` 是否为 `0/1` 或 `true/false`；
-- 关键帧是否从 `0` 开始并严格递增；
-- 所有文本是否为非空英文 ASCII；
-- intervention 是否越界或重叠。
+## 7. 传播到新数据集副本 / Materialize a new dataset copy
 
-- LeRobot v2.1 version;
-- episode existence and uniqueness;
-- `success` as `0/1` or `true/false`;
-- keyframes starting at `0` and increasing strictly;
-- non-empty English ASCII text;
-- intervention bounds and overlap.
+正式验证通过后，使用一个全新的输出目录：
 
-## 7. 传播并生成新数据集 / Propagate into a new dataset
-
-验证通过后，指定一个新的输出目录。不要把输出目录设为输入目录：
-
-After validation passes, choose a new output directory. Never use the input directory as the output:
+After final validation passes, use a new output directory:
 
 ```bash
 bash scripts/run.sh propagate \
-  --input /path/to/input_dataset \
-  --annotations /path/to/annotations.json \
-  --output /path/to/annotated_dataset
+  --input /path/to/datasets/raw_lerobot_v21 \
+  --annotations /path/to/annotation_work/annotations.json \
+  --output /path/to/annotation_work/annotated_lerobot_v21
 ```
 
-传播脚本会：
+脚本会复制 `meta/`、`data/`、`videos/`，并把关键帧区间传播到每一帧。原始 action、状态、时间戳、帧索引和视频不会被重排或覆盖。
 
-The propagation script will:
+The script copies `meta/`, `data/`, and `videos/`, then propagates keyframe intervals to every frame. Original actions, states, timestamps, frame indices, and videos are not reordered or overwritten.
 
-- 复制 `meta/`、`data/` 和 `videos/`；
-- 根据关键帧区间向后传播 `response` 和 `memory`；
-- 写入 `episode_success`、`is_intervention`、`intervention_start`、`intervention_reason`；
-- 更新 `tasks.jsonl`、`episodes.jsonl` 和 `info.json`；
-- 保留原始 action、状态、时间戳、帧索引和视频。
+传播后的字段：
 
-- Copy `meta/`, `data/`, and `videos/`;
-- Propagate `response` and `memory` forward from keyframes;
-- Write `episode_success`, `is_intervention`, `intervention_start`, and `intervention_reason`;
-- Update `tasks.jsonl`, `episodes.jsonl`, and `info.json`;
-- Preserve original actions, states, timestamps, frame indices, and videos.
+Materialized fields:
 
-## 8. 验证物化结果 / Validate the materialized dataset
+| 字段 / Field | 来源 / Source | 含义 / Meaning |
+|---|---|---|
+| `response` | `segments[].response` | 当前子任务 `l_t` / Current subtask `l_t` |
+| `memory` | `segments[].memory` | 当前完整记忆 `m_{t+1}` / Complete current memory `m_{t+1}` |
+| `episode_success` | `success` | episode 成功标签 / Episode success label |
+| `is_intervention` | 接管区间 / takeover intervals | 当前帧是否接管 / Whether the frame is under takeover |
+| `intervention_start` | 区间起点 / interval start | 接管触发点 / Takeover trigger |
+| `intervention_reason` | 接管原因 / takeover reason | 错误分析 / Error analysis |
+
+## 8. 传播后验证 / Validate the output
 
 ```bash
 bash scripts/run.sh validate-output \
-  --dataset-root /path/to/annotated_dataset \
-  --annotations /path/to/annotations.json
+  --dataset-root /path/to/annotation_work/annotated_lerobot_v21 \
+  --annotations /path/to/annotation_work/annotations.json
 ```
 
-它会检查 parquet 中的物化字段是否存在，并检查每个关键帧区间的 `response` 和 `memory` 是否正确传播。
+它会读取输出 parquet，检查字段是否存在，并检查每个关键帧区间的 `response` 和 `memory` 是否正确传播。
 
-It checks that materialized parquet fields exist and that `response` and `memory` match the annotated keyframe intervals.
+It reads the output parquet files, checks the materialized fields, and verifies `response` and `memory` at each keyframe interval.
 
-## 9. 物化字段与下游使用 / Materialized fields and downstream use
+## 9. API 是可选的，放在人工流程之后 / Optional API extension comes later
 
-| 物化字段 / Materialized field | 来源 / Source | 用途 / Use |
-|---|---|---|
-| `response` | `segments[].response` | 当前 subtask 条件 / Current subtask condition |
-| `memory` | `segments[].memory` | MEM 语言上下文 / MEM language context |
-| `episode_success` | `success` | episode 成功监督 / Episode success supervision |
-| `is_intervention` | `interventions` 区间 / intervention intervals | 行为来源分析 / Behavior-source analysis |
-| `intervention_start` | 每个区间的起点 / interval starts | 接管触发点统计 / Takeover trigger statistics |
-| `intervention_reason` | `intervention_reason` | 错误分析 / Error analysis |
+本项目的核心流程不依赖任何 API，人工视频标注可以独立完成。当前仓库不内置 Gemini 或其他 API 客户端，也不提供采样帧数限制的 API 流程。
 
-`episode_success` 不要当成逐帧 reward；`is_intervention` 也不要未经训练配置确认就混入 action loss。
+The core workflow does not depend on any API. Manual video annotation works independently. This repository does not bundle a Gemini or other API client, and it does not define an API workflow that limits the number of sampled frames.
 
-Do not treat `episode_success` as a frame-level reward. Do not mix `is_intervention` into action loss unless the training configuration explicitly requires it.
+如果将来接入 API，它只能作为预标注或辅助检查：
+
+If an API is added later, it should only provide pre-annotations or review assistance:
+
+1. 输入完整 episode 的观测、总任务和已有历史记忆；
+2. 输出与本项目相同格式的 `task_prompt`、`response`、`memory`、`success`、`interventions`；
+3. 仍然由人工对照完整视频确认 frame index、语义变化、成功状态和接管区间；
+4. API 输出必须先通过本项目的 `validate`，不能直接作为最终训练标签。
+
+1. Feed the complete episode observations, task goal, and historical memory;
+2. Produce the same `task_prompt`, `response`, `memory`, `success`, and `interventions` schema;
+3. Have a human verify frame indices, semantic changes, success, and takeover intervals against the complete video;
+4. Run this project's `validate` before using the output as training labels.
 
 ## 常见错误 / Common mistakes
 
-- 把中文写进 `task_prompt`、`response`、`memory` 或 `intervention_reason`；
-- 用 `TRUE`/`FALSE` 字符串代替 JSON 的 `true`/`false`；
-- 把 `memory` 写成只有“新增内容”的 delta；
+- 把数据集路径写死在脚本或 JSON 中；
+- 在采集阶段截断 episode 或限制帧数；
 - 把每一帧都写成一个 segment；
+- 把 `memory` 写成只有新增内容的 delta；
 - 把 intervention 只写成开始帧；
+- 在 `task_prompt`、`response`、`memory`、`intervention_reason` 中写中文；
+- 使用大写 `TRUE`/`FALSE` 字符串；
 - 直接覆盖输入数据集；
-- 未完成标注就不带 `--allow-missing` 做全量验证。
+- 没有人工复核 API 生成的标签。
 
-- Put Chinese text in `task_prompt`, `response`, `memory`, or `intervention_reason`;
-- Use `TRUE`/`FALSE` strings instead of JSON `true`/`false`;
-- Write only a memory delta instead of the complete memory;
+- Hard-code dataset paths in scripts or JSON;
+- Truncate episodes or limit frames during collection;
 - Create one segment for every frame;
+- Write only a memory delta;
 - Mark only the intervention start frame;
+- Write Chinese text in the English annotation fields;
+- Use uppercase `TRUE`/`FALSE` strings;
 - Overwrite the input dataset;
-- Run final validation without `--allow-missing` before annotation is complete.
+- Use API-generated labels without human review.
 
-## 示例和源码 / Examples and source
+## 示例和详细字段说明 / Examples and field guide
 
-- [`examples/README.md`](examples/README.md)：字段和训练流程解释 / field and training-flow guide
-- [`examples/annotations.example.json`](examples/annotations.example.json)：通用 JSON 示例 / generic JSON example
+- [`examples/README.md`](examples/README.md)：字段和 MEM 训练流程说明 / field and MEM training guide
+- [`examples/annotations.example.json`](examples/annotations.example.json)：干净的通用 JSON 示例 / clean generic JSON example
 - [`examples/ethernet_cable_episode.example.json`](examples/ethernet_cable_episode.example.json)：网线任务示例 / Ethernet task example
-- `scripts/data_annotation.py`：项目入口 / project entrypoint
-- `scripts/data_annotationn/`：模板、验证和传播实现 / template, validation, and propagation implementation
+- `scripts/data_annotation.py`：命令入口 / command entrypoint
+- `scripts/data_annotationn/`：模板、验证、传播实现 / template, validation, and propagation implementation
