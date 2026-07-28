@@ -67,6 +67,11 @@ def main() -> None:
         },
         "episodes": episodes,
     }
+    if args.output.exists() and args.output.is_dir():
+        raise IsADirectoryError(
+            f"模板输出必须是 JSON 文件，不是目录：{args.output}；"
+            "请传入例如 /path/to/annotations.json / output must be a JSON file"
+        )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"已生成 {len(episodes)} 条 episode 模板：{args.output}")

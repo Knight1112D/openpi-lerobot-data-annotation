@@ -80,7 +80,9 @@ def run_skill_script(script_name: str, arguments: list[str]) -> None:
     script_path = SKILL_SCRIPTS / script_name
     if not script_path.is_file():
         raise FileNotFoundError(f"找不到技能脚本：{script_path}")
-    subprocess.run([sys.executable, str(script_path), *arguments], check=True)
+    result = subprocess.run([sys.executable, str(script_path), *arguments], check=False)
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
 
 
 def main() -> None:
