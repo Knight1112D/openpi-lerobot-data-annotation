@@ -23,6 +23,8 @@ Requirements: Python 3.10+, `uv`, and a Linux/macOS shell.
 
 The environment is created inside this project's `.venv` directory.
 
+For Windows PowerShell, see the [Windows + uv deployment guide](README.zh-CN.md#windows--uv-部署). The repository includes `scripts/run.ps1` because `scripts/run.sh` is for Linux/macOS.
+
 ```bash
 cd /path/to/data_annotation_project
 bash scripts/bootstrap.sh

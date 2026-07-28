@@ -36,7 +36,7 @@ bash scripts/run.sh template \
   --output /path/to/annotations.json
 ```
 
-用 VSCode 打开 `--output` 指定的文件，填写英文的 `task_prompt`、`response`、`memory_update`、`success`、`metadata.overall_quality`、`segments[].mistake` 和可选的 `interventions`。`metadata.overall_speed` 由模板根据数据集长度生成并由校验器复核。人工只填写语义发生变化的关键帧，第一段必须从 `time_seconds: 0.0` 开始。视频播放器只有秒数时，直接把秒数写入 `time_seconds`，脚本会根据数据集 `fps` 自动转换帧号。
+用 VSCode 打开 `--output` 指定的文件，填写英文的 `task_prompt`、`response`、`memory_update`、`success`、`metadata.overall_quality`、`segments[].mistake` 和可选的 `interventions`。`metadata.overall_speed` 不需要手工填写，由校验和传播脚本根据数据集长度自动计算。人工只填写语义发生变化的关键帧，第一段必须从 `time_seconds: 0.0` 开始。视频播放器只有秒数时，直接把秒数写入 `time_seconds`，脚本会根据数据集 `fps` 自动转换帧号。
 
 填写完成后验证：
 
@@ -79,6 +79,50 @@ VLM/API 只作为最后的可选辅助方式，不是手工标注的前置条件
 - `validate`：`--dataset-root`、`--annotations`
 - `propagate`：`--input`、`--annotations`、`--output`
 - `validate-output`：`--dataset-root`、`--annotations`
+
+## Windows + uv 部署
+
+在 PowerShell 中执行下面的命令即可从 GitHub 完整 clone、创建环境并运行项目。先确保已安装 Git；没有 `uv` 时可用 `winget` 安装：
+
+```powershell
+winget install --id Git.Git -e
+winget install --id astral-sh.uv -e
+```
+
+重新打开 PowerShell 后：
+
+```powershell
+git clone https://github.com/Knight1112D/openpi-lerobot-data-annotation.git
+Set-Location openpi-lerobot-data-annotation
+uv python install 3.11
+uv sync --python 3.11
+.\scripts\run.ps1 --help
+```
+
+如果 PowerShell 阻止执行本地脚本，在当前窗口临时放开限制：
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Windows 下使用 `scripts\run.ps1`，不使用 Linux/macOS 的 `bash scripts/run.sh`。以下是完整的模板、验证和传播命令示例：
+
+```powershell
+$Dataset = "D:\datasets\raw_lerobot_v21"
+$Work = "D:\annotation_work"
+New-Item -ItemType Directory -Force $Work | Out-Null
+
+.\scripts\run.ps1 template --dataset-root $Dataset --output (Join-Path $Work "annotations.json")
+.\scripts\run.ps1 validate --dataset-root $Dataset --annotations (Join-Path $Work "annotations.json")
+.\scripts\run.ps1 propagate --input $Dataset --annotations (Join-Path $Work "annotations.json") --output (Join-Path $Work "annotated_dataset")
+.\scripts\run.ps1 validate-output --dataset-root (Join-Path $Work "annotated_dataset") --annotations (Join-Path $Work "annotations.json")
+```
+
+也可以不使用 `run.ps1`，直接用项目环境运行：
+
+```powershell
+uv run python scripts\data_annotation.py --help
+```
 
 完整示例：
 
