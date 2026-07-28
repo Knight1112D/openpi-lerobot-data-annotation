@@ -19,6 +19,22 @@
 
 episode 级标签：`1` 表示成功，`0` 表示失败。也接受 JSON 的 `true`/`false`，但推荐使用 `1`/`0`。它用于 episode 统计、recap/value 监督和失败分析，不是逐帧 reward。
 
+### `metadata`
+
+每个完成的 episode 都要有一组 episode-level metadata：
+
+```json
+"metadata": {
+  "overall_speed": "2000 steps",
+  "overall_quality": 4
+}
+```
+
+- `overall_speed`：根据真实 episode 长度按 500 steps 分桶生成；按照文中的区间，1750 到 2250 steps 都是 `"2000 steps"`；
+- `overall_quality`：人工质量分数，范围 1–5，5 代表最高质量。
+
+校验器会根据输入数据集的实际长度复核 `overall_speed`，不应手工猜测。
+
 ### `segments[].time_seconds`
 
 填写视频播放器显示的秒数。第一段必须从 `0.0` 开始，脚本会根据数据集 `fps` 自动转换成最近的 `frame_index`。应在抓取成立、插入完成、物体进入盒子或错误恢复完成等语义变化时增加段，不要按固定间隔重复。
@@ -48,6 +64,10 @@ m_{t+1} = Planner(o_t, g, l_0...l_t, success_history, m_t)
 下一段使用上一段生成的完整 `memory` 作为历史记忆 `m_t`，因此 JSON 不需要单独的 `m_t` 字段。第一段的 `memory_update` 填写初始状态。
 
 如果新状态使旧事实失效，可以在该段使用可选的完整 `memory` 字段覆盖前面拼接的内容。
+
+### `segments[].mistake`
+
+如果当前 action segment 中机器人犯了错误（例如抓取失败或执行了错误子任务），填写 `1`；没有错误填写 `0`。传播后该标签会覆盖当前 segment 的所有帧，并且它和人工接管区间是两个独立标签。
 
 ### `interventions`
 

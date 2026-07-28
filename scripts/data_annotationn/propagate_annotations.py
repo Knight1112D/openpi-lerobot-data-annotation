@@ -14,7 +14,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as parquet
 
-from validate_annotation_bundle import validate_sparse
+from validate_annotation_bundle import overall_speed_label, validate_sparse
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,12 +50,17 @@ def frame_labels(annotation: dict | None, length: int) -> dict[str, list]:
     if annotation is None:
         annotation = {
             "success": 0,
+            "metadata": {
+                "overall_speed": overall_speed_label(length),
+                "overall_quality": None,
+            },
             "segments": [{"frame_index": 0, "response": "", "memory": ""}],
             "interventions": [],
         }
     segments = annotation["segments"]
     responses: list[str] = []
     memories: list[str] = []
+    mistakes: list[bool] = []
     for frame in range(length):
         active = segments[0]
         for segment in segments:
@@ -65,6 +70,7 @@ def frame_labels(annotation: dict | None, length: int) -> dict[str, list]:
                 break
         responses.append(active["response"])
         memories.append(active["memory"])
+        mistakes.append(bool(active.get("mistake", 0)))
     is_intervention = [False] * length
     intervention_start = [False] * length
     intervention_reason = [""] * length
@@ -79,6 +85,9 @@ def frame_labels(annotation: dict | None, length: int) -> dict[str, list]:
         "response": responses,
         "memory": memories,
         "episode_success": [int(annotation["success"])] * length,
+        "episode_overall_speed": [annotation["metadata"]["overall_speed"]] * length,
+        "episode_overall_quality": [annotation["metadata"]["overall_quality"]] * length,
+        "mistake": mistakes,
         "is_intervention": is_intervention,
         "intervention_start": intervention_start,
         "intervention_reason": intervention_reason,
@@ -119,6 +128,10 @@ def update_tasks(root: Path, annotations: dict[int, dict], episode_rows: list[di
         if annotation is not None:
             row["tasks"] = [annotation["task_prompt"]]
             row["success"] = int(annotation["success"])
+            row["metadata"] = dict(annotation["metadata"])
+            row["metadata"]["mistake_segment_count"] = sum(
+                int(segment["mistake"]) for segment in annotation["segments"]
+            )
             row["is_dagger"] = bool(annotation.get("interventions"))
             row["intervention_count"] = len(annotation.get("interventions", []))
     return task_to_index
@@ -134,6 +147,9 @@ def update_info(root: Path, info: dict) -> None:
         "response": "string",
         "memory": "string",
         "episode_success": "int8",
+        "episode_overall_speed": "string",
+        "episode_overall_quality": "int8",
+        "mistake": "bool",
         "is_intervention": "bool",
         "intervention_start": "bool",
         "intervention_reason": "string",
@@ -156,6 +172,9 @@ def materialize_episode(path: Path, annotation: dict | None, length: int, task_i
     table = append_or_replace(table, "response", labels["response"], pa.string())
     table = append_or_replace(table, "memory", labels["memory"], pa.string())
     table = append_or_replace(table, "episode_success", labels["episode_success"], pa.int8())
+    table = append_or_replace(table, "episode_overall_speed", labels["episode_overall_speed"], pa.string())
+    table = append_or_replace(table, "episode_overall_quality", labels["episode_overall_quality"], pa.int8())
+    table = append_or_replace(table, "mistake", labels["mistake"], pa.bool_())
     table = append_or_replace(table, "is_intervention", labels["is_intervention"], pa.bool_())
     table = append_or_replace(table, "intervention_start", labels["intervention_start"], pa.bool_())
     table = append_or_replace(table, "intervention_reason", labels["intervention_reason"], pa.string())

@@ -10,31 +10,40 @@
       "episode_index": 0,
       "task_prompt": "Pick up the Ethernet cable with the left gripper and pick up the Ethernet adapter with the right gripper. Insert the cable into the adapter and put them into the box.",
       "success": 1,
+      "metadata": {
+        "overall_speed": "2000 steps",
+        "overall_quality": 4
+      },
       "segments": [
         {
           "time_seconds": 0.0,
           "response": "Pick up the Ethernet cable with the left gripper.",
-          "memory_update": "The Ethernet cable and adapter start on the table."
+          "memory_update": "The Ethernet cable and adapter start on the table.",
+          "mistake": 0
         },
         {
           "time_seconds": 8.0,
           "response": "Pick up the Ethernet adapter with the right gripper.",
-          "memory_update": "The left gripper now holds the Ethernet cable."
+          "memory_update": "The left gripper now holds the Ethernet cable.",
+          "mistake": 0
         },
         {
           "time_seconds": 18.0,
           "response": "Insert the Ethernet cable into the adapter.",
-          "memory_update": "The right gripper now holds the Ethernet adapter."
+          "memory_update": "The right gripper now holds the Ethernet adapter.",
+          "mistake": 1
         },
         {
           "time_seconds": 36.0,
           "response": "Place the connected cable and adapter into the box.",
-          "memory_update": "The cable is now inserted into the adapter, and the connected assembly is held above the box."
+          "memory_update": "The cable is now inserted into the adapter, and the connected assembly is held above the box.",
+          "mistake": 0
         },
         {
           "time_seconds": 55.0,
           "response": "Release the connected assembly and retract both grippers.",
-          "memory_update": "The connected cable and adapter are now inside the box. Both grippers are empty."
+          "memory_update": "The connected cable and adapter are now inside the box. Both grippers are empty.",
+          "mistake": 0
         }
       ],
       "interventions": [

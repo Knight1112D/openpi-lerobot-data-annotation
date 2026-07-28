@@ -17,6 +17,9 @@ REQUIRED_MATERIALIZED = {
     "response",
     "memory",
     "episode_success",
+    "episode_overall_speed",
+    "episode_overall_quality",
+    "mistake",
     "is_intervention",
     "intervention_start",
     "intervention_reason",
@@ -66,6 +69,47 @@ def normalize_success(value: object, label: str) -> int:
     if isinstance(value, int) and value in (0, 1):
         return value
     raise ValueError(f"{label} 必须是整数 0/1 或 JSON 布尔值 false/true / must be 0/1 or false/true")
+
+
+def normalize_quality(value: object, label: str) -> int:
+    """规范化 episode 质量分数 / Normalize the episode quality score."""
+    if isinstance(value, bool) or not isinstance(value, int) or value not in range(1, 6):
+        raise ValueError(f"{label} 必须是 1 到 5 的整数 / must be an integer from 1 to 5")
+    return value
+
+
+def overall_speed_label(length_steps: int) -> str:
+    """将 episode 长度按 500 steps 分桶。
+
+    Bin episode length into 500-step labels. The nearest 500-step bucket is
+    used, with the paper's example interval 1750 through 2250 mapping to
+    ``2000 steps``.
+    """
+    if not isinstance(length_steps, int) or length_steps <= 0:
+        raise ValueError("episode length 必须是正整数 / episode length must be positive")
+    # Python's ties-to-even rounding gives both 1750 and 2250 the requested
+    # ``2000 steps`` label while keeping the bins at 500-step increments.
+    bucket = max(500, int(round(length_steps / 500.0)) * 500)
+    return f"{bucket} steps"
+
+
+def normalize_metadata(episode: dict, index: int, length: int) -> dict:
+    """验证 episode-level metadata / Validate episode-level metadata."""
+    metadata = episode.get("metadata")
+    if not isinstance(metadata, dict):
+        raise ValueError(f"episode {index}.metadata 必须是对象 / must be an object")
+    expected_speed = overall_speed_label(length)
+    speed = metadata.get("overall_speed")
+    if speed != expected_speed:
+        raise ValueError(
+            f"episode {index}.metadata.overall_speed 必须为 {expected_speed!r}，当前为 {speed!r}"
+        )
+    return {
+        "overall_speed": expected_speed,
+        "overall_quality": normalize_quality(
+            metadata.get("overall_quality"), f"episode {index}.metadata.overall_quality"
+        ),
+    }
 
 
 def load_episode_lengths(dataset_root: Path) -> dict[int, int]:
@@ -157,7 +201,8 @@ def validate_sparse(dataset_root: Path, annotation_path: Path, allow_missing: bo
             # 模板会包含全部 episode；部分标注时跳过仍为 null 的未完成项。
             # The generated template contains every episode; skip unfinished null entries in partial mode.
             continue
-        normalize_success(episode.get("success"), f"episode {index}.success")
+        success = normalize_success(episode.get("success"), f"episode {index}.success")
+        metadata = normalize_metadata(episode, index, lengths[index])
         segments = episode.get("segments")
         if not isinstance(segments, list) or not segments:
             raise ValueError(f"episode {index}.segments 不能为空")
@@ -183,10 +228,16 @@ def validate_sparse(dataset_root: Path, annotation_path: Path, allow_missing: bo
                 normalized_segment.get("response"),
                 f"episode {index}.segments[{segment_index}].response",
             )
+            normalized_segment["mistake"] = normalize_success(
+                normalized_segment.get("mistake"),
+                f"episode {index}.segments[{segment_index}].mistake",
+            )
             normalized_segments.append(normalized_segment)
             previous = frame
         normalized_segments = materialize_memory_segments(normalized_segments)
         normalized_episode = dict(episode)
+        normalized_episode["success"] = success
+        normalized_episode["metadata"] = metadata
         normalized_episode["segments"] = normalized_segments
         interventions = episode.get("interventions", [])
         normalized_interventions: list[dict] = []
@@ -258,6 +309,15 @@ def validate_materialized(dataset_root: Path, annotations: dict[int, dict]) -> N
                 raise ValueError(f"episode {episode_index} response 未按区间传播")
             if rows["memory"][start] != segment["memory"] or rows["memory"][end - 1] != segment["memory"]:
                 raise ValueError(f"episode {episode_index} memory 未按区间传播")
+            expected_mistake = bool(segment["mistake"])
+            if rows["mistake"][start] != expected_mistake or rows["mistake"][end - 1] != expected_mistake:
+                raise ValueError(f"episode {episode_index} mistake 未按区间传播")
+        expected_speed = annotation["metadata"]["overall_speed"]
+        if any(value != expected_speed for value in rows["episode_overall_speed"]):
+            raise ValueError(f"episode {episode_index} 的 overall_speed 未统一")
+        expected_quality = annotation["metadata"]["overall_quality"]
+        if any(int(value) != expected_quality for value in rows["episode_overall_quality"]):
+            raise ValueError(f"episode {episode_index} 的 overall_quality 未统一")
 
 
 def main() -> None:

@@ -10,6 +10,8 @@ import argparse
 import json
 from pathlib import Path
 
+from validate_annotation_bundle import overall_speed_label
+
 
 def parse_args() -> argparse.Namespace:
     """解析命令行参数 / Parse command-line arguments."""
@@ -48,11 +50,16 @@ def main() -> None:
                 "episode_index": int(row["episode_index"]),
                 "task_prompt": task_prompt,
                 "success": None,
+                "metadata": {
+                    "overall_speed": overall_speed_label(int(row["length"])),
+                    "overall_quality": None,
+                },
                 "segments": [
                     {
                         "time_seconds": 0.0,
                         "response": "",
                         "memory_update": "",
+                        "mistake": None,
                     }
                 ],
                 "interventions": [],

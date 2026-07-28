@@ -19,6 +19,22 @@ The complete task goal `g`. It is written to task metadata and used as the globa
 
 An episode-level label: `1` means success and `0` means failure. JSON `true`/`false` are also accepted, but `1`/`0` are recommended. This label is used for episode statistics, recap/value supervision, and failure analysis; it is not a frame-level reward.
 
+### `metadata`
+
+Each completed episode has an episode-level metadata object:
+
+```json
+"metadata": {
+  "overall_speed": "2000 steps",
+  "overall_quality": 4
+}
+```
+
+- `overall_speed`: computed from the episode length in timesteps and rounded to a 500-step bucket; lengths from 1750 through 2250 become `"2000 steps"`;
+- `overall_quality`: human quality score from 1 (lowest) to 5 (highest).
+
+The validator compares `overall_speed` with the actual input episode length, so it should not be guessed manually.
+
 ### `segments[].time_seconds`
 
 Enter the timestamp shown by the video player in seconds. The first segment must start at `0.0`; the tool converts seconds to the nearest frame using the dataset `fps`. Add segments at semantic changes such as an established grasp, completed insertion, an object entering the box, or completed recovery. Do not label every fixed interval.
@@ -48,6 +64,10 @@ m_{t+1} = Planner(o_t, g, l_0...l_t, success_history, m_t)
 The next segment uses the previous materialized `memory` as historical memory `m_t`, so no separate `m_t` field is needed in the JSON. The first segment's `memory_update` describes the initial state.
 
 If a new state invalidates an old fact, use the optional full `memory` field for that segment to replace the accumulated text.
+
+### `segments[].mistake`
+
+Set `mistake` to `1` when the robot made a mistake during the action segment, such as failing to grasp an object or executing the wrong subtask; otherwise set it to `0`. It is propagated to every frame until the next action segment and is separate from `interventions`, which record operator takeovers.
 
 ### `interventions`
 

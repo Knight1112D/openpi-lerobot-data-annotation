@@ -10,22 +10,28 @@
       "episode_index": 0,
       "task_prompt": "Place the red block into the tray.",
       "success": 1,
+      "metadata": {
+        "overall_speed": "2000 steps",
+        "overall_quality": 4
+      },
       "segments": [
         {
           "time_seconds": 0.0,
           "response": "Reach for the red block with the gripper.",
-          "memory_update": "The red block starts on the table."
+          "memory_update": "The red block starts on the table.",
+          "mistake": 0
         },
         {
           "time_seconds": 4.0,
           "response": "Place the red block into the tray.",
-          "memory_update": "The gripper now holds the red block above the tray."
+          "memory_update": "The gripper now holds the red block above the tray.",
+          "mistake": 1
         }
       ],
       "interventions": [
         {
           "start_time_seconds": 5.0,
-          "end_time_seconds": 5.333,
+          "end_time_seconds": 6.0,
           "intervention_reason": "The block was misaligned with the tray and the operator corrected the placement."
         }
       ]

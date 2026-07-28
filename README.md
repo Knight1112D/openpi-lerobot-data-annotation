@@ -8,7 +8,9 @@ This project provides a manual-first workflow for annotating LeRobot v2.1 robot 
 
 - A VSCode-editable annotation template;
 - Episode-level task and success labels;
+- Episode metadata: 500-step-binned overall speed and human overall quality score;
 - Keyframe-level subtask and memory labels;
+- Keyframe-level mistake labels propagated to frames;
 - Operator takeover interval labels;
 - Validation for text, frame indices, episode coverage, and interval bounds;
 - Propagation of sparse labels into frame-level parquet fields.
@@ -92,6 +94,10 @@ Review the complete episode. Do not use a fixed sampling schedule such as every 
   "episode_index": 0,
   "task_prompt": "Pick up the Ethernet cable with the left gripper and insert it into the adapter.",
   "success": 1,
+  "metadata": {
+    "overall_speed": "2000 steps",
+    "overall_quality": 4
+  },
   "segments": [],
   "interventions": []
 }
@@ -101,6 +107,8 @@ Review the complete episode. Do not use a fixed sampling schedule such as every 
 - `task_prompt`: the complete task goal in clear English;
 - `success`: `1` for success and `0` for failure; JSON `true`/`false` are accepted, but `1`/`0` are recommended;
 - `success: null`: unfinished and invalid for final validation;
+- `metadata.overall_speed`: the episode length bucket, computed from the input dataset in 500-step intervals. Lengths from 1750 through 2250 are labeled `"2000 steps"`;
+- `metadata.overall_quality`: human episode quality score from 1 to 5;
 - `interventions`: use `[]` when there was no operator takeover.
 
 ### 4.3 Mark semantic keyframes
@@ -113,7 +121,8 @@ Use seconds directly:
 {
   "time_seconds": 18.0,
   "response": "Insert the Ethernet cable into the adapter.",
-  "memory_update": "The right gripper now holds the adapter. The cable has not been inserted yet."
+  "memory_update": "The right gripper now holds the adapter. The cable has not been inserted yet.",
+  "mistake": 0
 }
 ```
 
@@ -146,7 +155,11 @@ Avoid vague text such as `Continue`, `Do it`, `Looks good`, or `Move the arm`.
 
 Each `response` should describe only the current subtask, not repeat the entire task or predict the result.
 
-### 4.5 Fill `memory_update`: write only the new memory fact
+### 4.5 Fill `mistake`: action-segment error label
+
+Add `mistake: 1` when the robot made a mistake within that action segment, such as failing to grasp an object or performing the wrong subtask. Use `mistake: 0` when the segment is mistake-free. The label is propagated to every frame in the segment and is independent of operator takeover intervals.
+
+### 4.6 Fill `memory_update`: write only the new memory fact
 
 For manual annotation, write only the new useful memory fact in `memory_update`. During propagation, the tool concatenates the previous complete memory and the new update into the materialized `memory` field.
 
@@ -176,7 +189,7 @@ Materialized m_{t+1}:
 The left gripper holds the Ethernet cable. The right gripper now holds the Ethernet adapter. The cable has not been inserted yet.
 ```
 
-### 4.6 Fill `interventions`
+### 4.7 Fill `interventions`
 
 An operator takeover is an interval entered in seconds, not only a start-time flag:
 
@@ -242,6 +255,9 @@ Materialized fields:
 | `response` | `segments[].response` | Current subtask `l_t` |
 | `memory` | Accumulated `memory_update` values | Complete current memory `m_{t+1}` |
 | `episode_success` | `success` | Episode success label |
+| `episode_overall_speed` | `metadata.overall_speed` | 500-step-binned episode length |
+| `episode_overall_quality` | `metadata.overall_quality` | Human quality score from 1 to 5 |
+| `mistake` | `segments[].mistake` | Whether the current action segment contains a mistake |
 | `is_intervention` | Intervention intervals | Whether the frame is under takeover |
 | `intervention_start` | Interval start | Takeover trigger frame |
 | `intervention_reason` | Intervention reason | Error analysis |

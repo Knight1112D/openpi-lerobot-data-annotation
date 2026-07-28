@@ -7,8 +7,11 @@
 ## 字段语义
 
 - `success`：最终填写 `1` 或 `0`；也接受 JSON 的 `true`/`false`，脚本会转换成 `1`/`0`。模板中的 `null` 只表示尚未填写，不能通过最终验证；大写 `TRUE`/`FALSE` 不是合法 JSON 布尔值。
+- `metadata.overall_speed`：根据 episode 的实际 timestep 长度按 500 steps 分桶自动计算，例如 1750 到 2250 steps（含边界）标记为 `"2000 steps"`，不能手工写成与真实长度不符的值。
+- `metadata.overall_quality`：人工填写的 episode 质量分数，范围为 1–5，5 代表质量最高。
 - `response`：当前关键帧开始执行的子任务 `l_t`，使用可执行英文短句。
 - `memory_update`：当前阶段新增的记忆事实；传播时会自动和前面内容拼接成完整 `memory`。
+- `segments[].mistake`：当前 action segment 是否发生错误；发生填写 `1`，没有填写 `0`。传播后会成为逐帧 `mistake` 字段。
 - `segments`：可以有多个关键帧段；手工填写 `time_seconds`，传播时按 `fps` 自动转换成 `frame_index`。
 - `interventions`：使用 `start_time_seconds` 和 `end_time_seconds` 标记操作者实际改变机器人行为的连续区间，不是只标记一个时间，也不需要填写数值形式的“干预量”。
 
@@ -33,7 +36,7 @@ bash scripts/run.sh template \
   --output /path/to/annotations.json
 ```
 
-用 VSCode 打开 `--output` 指定的文件，填写英文的 `task_prompt`、`response`、`memory_update`、`success` 和可选的 `interventions`。人工只填写语义发生变化的关键帧，第一段必须从 `time_seconds: 0.0` 开始。视频播放器只有秒数时，直接把秒数写入 `time_seconds`，脚本会根据数据集 `fps` 自动转换帧号。
+用 VSCode 打开 `--output` 指定的文件，填写英文的 `task_prompt`、`response`、`memory_update`、`success`、`metadata.overall_quality`、`segments[].mistake` 和可选的 `interventions`。`metadata.overall_speed` 由模板根据数据集长度生成并由校验器复核。人工只填写语义发生变化的关键帧，第一段必须从 `time_seconds: 0.0` 开始。视频播放器只有秒数时，直接把秒数写入 `time_seconds`，脚本会根据数据集 `fps` 自动转换帧号。
 
 填写完成后验证：
 
@@ -62,7 +65,7 @@ bash scripts/run.sh validate-output \
   --annotations /path/to/annotations.json
 ```
 
-这一步用于确认最终 LeRobot 数据集中的 parquet 已经包含 `response`、`memory`、`episode_success` 和干预字段。
+这一步用于确认最终 LeRobot 数据集中的 parquet 已经包含 `response`、`memory`、`episode_success`、episode metadata 和 mistake/干预字段。
 
 ## VLM 辅助标注
 
