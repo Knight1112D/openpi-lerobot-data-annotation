@@ -1,0 +1,42 @@
+OpenPI LeRobot v2.1 标注项目：Windows 10 一键部署
+
+一、完整部署包
+
+1. 把整个部署包解压到一个没有中文和空格的目录，例如：
+   C:\openpi-lerobot-data-annotation
+2. 右键“以 PowerShell 运行”，或者在该目录打开 PowerShell。
+3. 执行：
+
+   Set-ExecutionPolicy -Scope Process Bypass
+   .\scripts\install_windows.ps1
+
+脚本会在项目目录中创建 .runtime 和 .venv，不要求管理员密码。
+
+二、如果目标电脑可以上网
+
+如果部署包中没有 Python 或 wheel 文件，可以执行：
+
+   .\scripts\install_windows.ps1 -Online
+
+脚本会使用项目内的 uv 在线安装 Python 3.11 和 pyarrow 依赖。
+
+三、验证项目
+
+   .\scripts\run.ps1 --help
+
+   .\scripts\run.ps1 template --dataset-root "D:\datasets\raw_lerobot_v21" --output "D:\annotation_work\annotations.json"
+
+   .\scripts\run.ps1 validate --dataset-root "D:\datasets\raw_lerobot_v21" --annotations "D:\annotation_work\annotations.json"
+
+   .\scripts\run.ps1 propagate --input "D:\datasets\raw_lerobot_v21" --annotations "D:\annotation_work\annotations.json" --output "D:\annotation_work\annotated_dataset"
+
+   .\scripts\run.ps1 validate-output --dataset-root "D:\annotation_work\annotated_dataset" --annotations "D:\annotation_work\annotations.json"
+
+四、说明
+
+- 当前完整离线包面向 Windows 10/11 x64。
+- 不需要 Git、Python、uv 或管理员密码。
+- 如果只是从 GitHub 下载源码而没有安装包，需要电脑能够访问互联网，然后执行：
+  uv python install 3.11
+  uv sync --python 3.11
+- 目标电脑没有远程服务时，不能由另一台电脑直接操控；请在目标电脑本地运行本手册中的命令。

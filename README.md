@@ -25,6 +25,8 @@ The environment is created inside this project's `.venv` directory.
 
 For Windows PowerShell, see the [Windows + uv deployment guide](README.zh-CN.md#windows--uv-部署). The repository includes `scripts/run.ps1` because `scripts/run.sh` is for Linux/macOS.
 
+For a bundled Windows deployment, see [`INSTALL_WINDOWS.txt`](INSTALL_WINDOWS.txt) and `scripts/install_windows.ps1`.
+
 ```bash
 cd /path/to/data_annotation_project
 bash scripts/bootstrap.sh

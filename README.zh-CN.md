@@ -84,6 +84,8 @@ VLM/API 只作为最后的可选辅助方式，不是手工标注的前置条件
 
 在 PowerShell 中执行下面的命令即可从 GitHub 完整 clone、创建环境并运行项目。先确保已安装 Git；没有 `uv` 时可用 `winget` 安装：
 
+如果使用随项目提供的完整离线部署包，优先阅读项目根目录的 [`INSTALL_WINDOWS.txt`](INSTALL_WINDOWS.txt)，并运行 `scripts\install_windows.ps1`；该包可以携带 Python、uv 和 Windows wheel，不需要 Git 或管理员密码。
+
 ```powershell
 winget install --id Git.Git -e
 winget install --id astral-sh.uv -e
