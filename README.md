@@ -107,7 +107,7 @@ Review the complete episode. Do not use a fixed sampling schedule such as every 
 - `task_prompt`: the complete task goal in clear English;
 - `success`: `1` for success and `0` for failure; JSON `true`/`false` are accepted, but `1`/`0` are recommended;
 - `success: null`: unfinished and invalid for final validation;
-- `metadata.overall_speed`: the episode length bucket, computed from the input dataset in 500-step intervals. Lengths from 1750 through 2250 are labeled `"2000 steps"`;
+- `metadata.overall_speed`: generated automatically from the input dataset's episode length in 500-step intervals. Leave it absent or `null` in human annotations; lengths from 1750 through 2250 are labeled `"2000 steps"`;
 - `metadata.overall_quality`: human episode quality score from 1 to 5;
 - `interventions`: use `[]` when there was no operator takeover.
 
@@ -233,7 +233,7 @@ bash scripts/run.sh validate \
   --annotations /path/to/annotation_work/annotations.json
 ```
 
-The validator checks the dataset version, episode IDs, success labels, English ASCII text, keyframe ordering, frame bounds, and intervention overlap/bounds.
+The validator checks the dataset version, episode IDs, success labels, metadata quality, English ASCII text, keyframe ordering, frame bounds, and intervention overlap/bounds. It computes `overall_speed` from the actual episode length.
 
 ## 7. Generate the final LeRobot dataset
 

@@ -7,7 +7,7 @@
 ## 字段语义
 
 - `success`：最终填写 `1` 或 `0`；也接受 JSON 的 `true`/`false`，脚本会转换成 `1`/`0`。模板中的 `null` 只表示尚未填写，不能通过最终验证；大写 `TRUE`/`FALSE` 不是合法 JSON 布尔值。
-- `metadata.overall_speed`：根据 episode 的实际 timestep 长度按 500 steps 分桶自动计算，例如 1750 到 2250 steps（含边界）标记为 `"2000 steps"`，不能手工写成与真实长度不符的值。
+- `metadata.overall_speed`：根据 episode 的实际 timestep 长度按 500 steps 自动计算；人工标注时可以省略或填写 `null`，例如 1750 到 2250 steps（含边界）会自动标记为 `"2000 steps"`。
 - `metadata.overall_quality`：人工填写的 episode 质量分数，范围为 1–5，5 代表质量最高。
 - `response`：当前关键帧开始执行的子任务 `l_t`，使用可执行英文短句。
 - `memory_update`：当前阶段新增的记忆事实；传播时会自动和前面内容拼接成完整 `memory`。

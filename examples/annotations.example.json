@@ -11,7 +11,7 @@
       "task_prompt": "Place the red block into the tray.",
       "success": 1,
       "metadata": {
-        "overall_speed": "2000 steps",
+        "overall_speed": null,
         "overall_quality": 4
       },
       "segments": [

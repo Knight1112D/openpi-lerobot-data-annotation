@@ -30,10 +30,10 @@ episode 级标签：`1` 表示成功，`0` 表示失败。也接受 JSON 的 `tr
 }
 ```
 
-- `overall_speed`：根据真实 episode 长度按 500 steps 分桶生成；按照文中的区间，1750 到 2250 steps 都是 `"2000 steps"`；
+- `overall_speed`：根据真实 episode 长度按 500 steps 分桶自动生成；人工标注时可以省略或填写 `null`，按照文中的区间，1750 到 2250 steps 都是 `"2000 steps"`；
 - `overall_quality`：人工质量分数，范围 1–5，5 代表最高质量。
 
-校验器会根据输入数据集的实际长度复核 `overall_speed`，不应手工猜测。
+校验器会根据输入数据集的实际长度计算 `overall_speed`，传播后的输出会写入计算结果。
 
 ### `segments[].time_seconds`
 

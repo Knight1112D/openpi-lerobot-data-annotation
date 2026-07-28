@@ -100,7 +100,7 @@ def normalize_metadata(episode: dict, index: int, length: int) -> dict:
         raise ValueError(f"episode {index}.metadata 必须是对象 / must be an object")
     expected_speed = overall_speed_label(length)
     speed = metadata.get("overall_speed")
-    if speed != expected_speed:
+    if speed not in (None, expected_speed):
         raise ValueError(
             f"episode {index}.metadata.overall_speed 必须为 {expected_speed!r}，当前为 {speed!r}"
         )

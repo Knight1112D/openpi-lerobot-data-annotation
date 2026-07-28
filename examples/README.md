@@ -30,10 +30,10 @@ Each completed episode has an episode-level metadata object:
 }
 ```
 
-- `overall_speed`: computed from the episode length in timesteps and rounded to a 500-step bucket; lengths from 1750 through 2250 become `"2000 steps"`;
+- `overall_speed`: generated automatically from the episode length in timesteps and rounded to a 500-step bucket; leave it absent or `null` in human annotations. Lengths from 1750 through 2250 become `"2000 steps"`;
 - `overall_quality`: human quality score from 1 (lowest) to 5 (highest).
 
-The validator compares `overall_speed` with the actual input episode length, so it should not be guessed manually.
+The validator computes `overall_speed` from the actual input episode length. The propagated output contains the computed value.
 
 ### `segments[].time_seconds`
 
