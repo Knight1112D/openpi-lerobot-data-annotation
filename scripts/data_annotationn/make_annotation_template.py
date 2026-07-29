@@ -11,6 +11,57 @@ import json
 from pathlib import Path
 
 
+def load_v3_tasks(path: Path) -> dict[int, str]:
+    """读取 LeRobot v3.0 tasks.parquet / Read LeRobot v3.0 tasks.parquet."""
+    try:
+        import pyarrow.parquet as parquet
+    except ImportError as exc:
+        raise RuntimeError("读取 LeRobot v3.0 需要项目环境中的 pyarrow") from exc
+    table = parquet.read_table(path)
+    columns = table.to_pydict()
+    task_indices = columns.get("task_index", [])
+    task_texts = columns.get("task", columns.get("__index_level_0__", []))
+    return {int(index): str(task) for index, task in zip(task_indices, task_texts)}
+
+
+def load_episode_rows(dataset_root: Path, info: dict) -> tuple[list[dict], dict[int, str]]:
+    """读取 v2.1/v3.0 episode 信息 / Read v2.1 or v3.0 episode metadata."""
+    meta = dataset_root / "meta"
+    episodes_path = meta / "episodes.jsonl"
+    tasks_path = meta / "tasks.jsonl"
+    if episodes_path.exists():
+        tasks = {int(row["task_index"]): row["task"] for row in read_jsonl(tasks_path)}
+        return read_jsonl(episodes_path), tasks
+
+    if info.get("codebase_version") != "v3.0":
+        raise ValueError(
+            "数据集缺少 meta/episodes.jsonl；当前只支持 LeRobot v2.1 或 v3.0"
+        )
+    data_files = sorted((dataset_root / "data").glob("chunk-*/file-*.parquet"))
+    if not data_files:
+        raise ValueError("找不到 LeRobot v3.0 data/chunk-*/file-*.parquet")
+    try:
+        import pyarrow.parquet as parquet
+    except ImportError as exc:
+        raise RuntimeError("读取 LeRobot v3.0 需要项目环境中的 pyarrow") from exc
+    tasks = load_v3_tasks(meta / "tasks.parquet")
+    rows = []
+    for path in data_files:
+        table = parquet.read_table(path, columns=["episode_index", "task_index"])
+        episode_indices = sorted(set(int(value) for value in table["episode_index"].to_pylist()))
+        if len(episode_indices) != 1:
+            raise ValueError(f"{path} 必须只包含一个 episode")
+        task_indices = sorted(set(int(value) for value in table["task_index"].to_pylist()))
+        rows.append(
+            {
+                "episode_index": episode_indices[0],
+                "length": table.num_rows,
+                "tasks": task_indices,
+            }
+        )
+    return rows, tasks
+
+
 def parse_args() -> argparse.Namespace:
     """解析命令行参数 / Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -33,16 +84,19 @@ def main() -> None:
     """
     args = parse_args()
     info_path = args.dataset_root / "meta" / "info.json"
-    episodes_path = args.dataset_root / "meta" / "episodes.jsonl"
-    tasks_path = args.dataset_root / "meta" / "tasks.jsonl"
     info = json.loads(info_path.read_text(encoding="utf-8"))
-    if info.get("codebase_version") != "v2.1":
-        raise ValueError(f"只支持 LeRobot v2.1，当前版本为 {info.get('codebase_version')!r}")
-    tasks = {int(row["task_index"]): row["task"] for row in read_jsonl(tasks_path)}
+    if info.get("codebase_version") not in {"v2.1", "v3.0"}:
+        raise ValueError(
+            f"只支持 LeRobot v2.1/v3.0，当前版本为 {info.get('codebase_version')!r}"
+        )
+    episode_rows, tasks = load_episode_rows(args.dataset_root, info)
     episodes = []
-    for row in read_jsonl(episodes_path):
+    for row in episode_rows:
         task_list = row.get("tasks") or []
-        task_prompt = task_list[0] if task_list else tasks.get(0, "")
+        task_prompt = task_list[0] if task_list and isinstance(task_list[0], str) else None
+        if not task_prompt:
+            task_index = int(task_list[0]) if task_list else 0
+            task_prompt = tasks.get(task_index, "REPLACE_WITH_TASK_PROMPT")
         episodes.append(
             {
                 "episode_index": int(row["episode_index"]),
@@ -66,7 +120,7 @@ def main() -> None:
     result = {
         "schema_version": "data_annotation.v1",
         "dataset": {
-            "format": "lerobot_v2.1",
+            "format": f"lerobot_{info.get('codebase_version')}",
             "source_root": "REPLACE_WITH_INPUT_DATASET_ROOT",
             "fps": info.get("fps"),
         },

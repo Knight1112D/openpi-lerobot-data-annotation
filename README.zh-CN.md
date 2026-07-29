@@ -2,7 +2,7 @@
 
 [English README](README.md)
 
-本目录按照 `skills/data_annotationn` skill 建立，用于对 LeRobot v2.1 数据集进行人工稀疏标注、验证和逐帧物化。所有数据集、标注文件和输出目录都必须通过命令行显式传入；脚本没有业务路径默认值。原始数据不会被覆盖，物化结果由 `--output` 指定。
+本目录按照 `skills/data_annotationn` skill 建立，用于对 LeRobot v2.1 数据集进行人工稀疏标注、验证和逐帧物化；模板生成器同时支持读取 LeRobot v3.0 数据。所有数据集、标注文件和输出目录都必须通过命令行显式传入；脚本没有业务路径默认值。原始数据不会被覆盖，物化结果由 `--output` 指定。
 
 ## 字段语义
 
@@ -35,6 +35,8 @@ bash scripts/run.sh template \
   --dataset-root /path/to/input_dataset \
   --output /path/to/annotations.json
 ```
+
+如果输入是 LeRobot v3.0，模板生成器会从 `meta/tasks.parquet` 和 `data/chunk-*/file-*.parquet` 自动读取任务与 episode 长度；当前 `validate`、`propagate` 和 `validate-output` 物化流程仍要求 v2.1。
 
 用 VSCode 打开 `--output` 指定的文件，填写英文的 `task_prompt`、`response`、`memory_update`、`success`、`metadata.overall_quality`、`segments[].mistake` 和可选的 `interventions`。`metadata.overall_speed` 不需要手工填写，由校验和传播脚本根据数据集长度自动计算。人工只填写语义发生变化的关键帧，第一段必须从 `time_seconds: 0.0` 开始。视频播放器只有秒数时，直接把秒数写入 `time_seconds`，脚本会根据数据集 `fps` 自动转换帧号。
 

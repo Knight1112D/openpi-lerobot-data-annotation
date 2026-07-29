@@ -2,7 +2,7 @@
 
 [Chinese README](README.zh-CN.md)
 
-This project provides a manual-first workflow for annotating LeRobot v2.1 robot datasets. You inspect complete episode videos, mark semantic keyframes, write English task/subtask/MEM labels and operator takeover intervals, validate the JSON, and materialize the sparse labels into a new dataset copy.
+This project provides a manual-first workflow for annotating LeRobot v2.1 robot datasets. The template generator can also read LeRobot v3.0 metadata. You inspect complete episode videos, mark semantic keyframes, write English task/subtask/MEM labels and operator takeover intervals, validate the JSON, and materialize the sparse labels into a new dataset copy.
 
 ## What this project provides
 
@@ -74,6 +74,8 @@ bash scripts/run.sh template \
 ```
 
 The template contains one object for every episode. You can complete one episode at a time and leave unfinished episodes as `success: null`.
+
+For LeRobot v3.0, the template generator reads task text from `meta/tasks.parquet` and episode lengths from `data/chunk-*/file-*.parquet`. The current validation and propagation commands still require v2.1.
 
 ## 4. Annotate manually against the complete video
 
