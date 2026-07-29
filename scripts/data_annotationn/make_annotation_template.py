@@ -37,7 +37,11 @@ def load_episode_rows(dataset_root: Path, info: dict) -> tuple[list[dict], dict[
         raise ValueError(
             "数据集缺少 meta/episodes.jsonl；当前只支持 LeRobot v2.1 或 v3.0"
         )
-    data_files = sorted((dataset_root / "data").glob("chunk-*/file-*.parquet"))
+    data_root = dataset_root / "data"
+    data_files = sorted(
+        set(data_root.glob("chunk-*/episode_*.parquet"))
+        | set(data_root.glob("chunk-*/file-*.parquet"))
+    )
     if not data_files:
         raise ValueError("找不到 LeRobot v3.0 data/chunk-*/file-*.parquet")
     try:
