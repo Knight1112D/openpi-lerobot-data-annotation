@@ -179,7 +179,7 @@ Add `mistake: 1` when the robot made a mistake within that action segment, such 
 
 ### 4.6 Fill `memory_update`: write the current segment memory
 
-For manual annotation, write the memory that belongs to the current segment in `memory_update`. During propagation, the tool writes that value only to the current segment's frames; it does not concatenate all previous segments into a global memory string. If a segment has no memory, leave `memory_update` empty and the materialized value is empty for that segment.
+For manual annotation, write the memory that belongs to the current segment in `memory_update`. During propagation, the tool writes that value only to the current segment's frames; it does not concatenate all previous segments into a global memory string. If the source segment has no memory, add a completed past-tense description derived from its response and write it into that segment's memory.
 
 The high-level update can be represented as:
 
