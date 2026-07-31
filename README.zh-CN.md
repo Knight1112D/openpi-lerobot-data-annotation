@@ -13,6 +13,7 @@
 - `memory_update`：当前阶段新增的记忆事实；传播时会自动和前面内容拼接成完整 `memory`。
 - `segments[].mistake`：当前 action segment 是否发生错误；发生填写 `1`，没有填写 `0`。传播后会成为逐帧 `mistake` 字段。
 - `segments`：可以有多个关键帧段；手工填写 `time_seconds`，传播时按 `fps` 自动转换成 `frame_index`。
+- 每个 episode 的标准格式只能有一个 `"segments"` 数组。旧标注文件如果把每一段错误地写成重复的 `"segments"` 键，校验和传播脚本会按原顺序合并，避免 JSON 解析时后面的键覆盖前面的段；新生成的标注文件会统一写成单个数组。
 - `interventions`：使用 `start_time_seconds` 和 `end_time_seconds` 标记操作者实际改变机器人行为的连续区间，不是只标记一个时间，也不需要填写数值形式的“干预量”。
 
 可以按 episode 逐个完成同一个 JSON 文件。尚未完成全部 episode 时，验证命令加 `--allow-missing`；全部完成后再进行不带该参数的正式验证和传播。

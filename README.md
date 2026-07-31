@@ -134,6 +134,8 @@ Use seconds directly:
 
 The converter calculates `frame_index = round(time_seconds * fps)`. You may still provide `frame_index` directly, but if both fields are present they must agree.
 
+The canonical format contains one `"segments"` array in each episode. Older annotation files may contain several duplicate `"segments"` keys in the same episode; the validator and propagator merge those arrays in their original order so that no segment is silently lost. Newly generated annotation files always use the canonical single-array format.
+
 Good keyframes include:
 
 - a grasp has become established;
