@@ -53,7 +53,7 @@ Insert the Ethernet cable into the adapter.
 
 ### `segments[].memory_update`
 
-只填写当前阶段新增的有效记忆事实。传播时脚本会把前面已经拼接好的完整记忆和当前更新拼接成最终的 `memory` 字段。
+填写当前阶段对应的 memory。传播时脚本只把当前段的值写入当前段帧，不会把所有历史内容拼接成全局 `memory`；当前段没有 memory 时保持为空。
 
 高层更新关系可以表示为：
 
@@ -61,7 +61,7 @@ Insert the Ethernet cable into the adapter.
 m_{t+1} = Planner(o_t, g, l_0...l_t, success_history, m_t)
 ```
 
-下一段使用上一段生成的完整 `memory` 作为历史记忆 `m_t`，因此 JSON 不需要单独的 `m_t` 字段。第一段的 `memory_update` 填写初始状态。
+下一段可以使用上一段的当前 `memory` 作为历史记忆 `m_t`，因此 JSON 不需要单独的 `m_t` 字段。第一段的 `memory_update` 填写初始状态。
 
 如果新状态使旧事实失效，可以在该段使用可选的完整 `memory` 字段覆盖前面拼接的内容。
 

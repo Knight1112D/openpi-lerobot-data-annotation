@@ -177,9 +177,9 @@ Each `response` should describe only the current subtask, not repeat the entire 
 
 Add `mistake: 1` when the robot made a mistake within that action segment, such as failing to grasp an object or performing the wrong subtask. Use `mistake: 0` when the segment is mistake-free. The label is propagated to every frame in the segment and is independent of operator takeover intervals.
 
-### 4.6 Fill `memory_update`: write only the new memory fact
+### 4.6 Fill `memory_update`: write the current segment memory
 
-For manual annotation, write only the new useful memory fact in `memory_update`. During propagation, the tool concatenates the previous complete memory and the new update into the materialized `memory` field.
+For manual annotation, write the memory that belongs to the current segment in `memory_update`. During propagation, the tool writes that value only to the current segment's frames; it does not concatenate all previous segments into a global memory string. If a segment has no memory, leave `memory_update` empty and the materialized value is empty for that segment.
 
 The high-level update can be represented as:
 
@@ -187,9 +187,9 @@ The high-level update can be represented as:
 m_{t+1} = Planner(o_t, g, l_0...l_t, success_history, m_t)
 ```
 
-The JSON does not need a separate `m_t` field. The previous segment's materialized `memory` becomes the next segment's historical `m_t`. The first segment's `memory_update` should describe the initial state.
+The JSON does not need a separate `m_t` field. The external VLM may use the previous segment separately as historical `m_t`, while the parquet `memory` field remains the current segment memory only. The first segment's `memory_update` should describe the initial state.
 
-Each update should describe a new future-useful object state, completed step, unfinished goal, or recovery fact. If a new state invalidates an old fact, use the optional full `memory` field for that segment to replace the accumulated text.
+Each value should describe the future-useful object state, completed step, unfinished goal, or recovery fact that is current in that segment. If a new state invalidates an old fact, write the replacement in the current segment; do not append the old fact to it. The optional full `memory` field can be used when the current value is already materialized.
 
 Example:
 
@@ -239,7 +239,7 @@ bash scripts/run.sh validate \
   --allow-missing
 ```
 
-This skips unfinished episodes and validates completed ones. If an episode has a non-null `success` but an empty `response` or `memory_update`, validation fails.
+This skips unfinished episodes and validates completed ones. A completed episode still needs a non-empty `response`; an empty `memory_update` is allowed when the current memory is unchanged.
 
 ## 6. Run final validation
 
@@ -271,7 +271,7 @@ Materialized fields:
 | Field | Source | Meaning |
 |---|---|---|
 | `response` | `segments[].response` | Current subtask `l_t` |
-| `memory` | Accumulated `memory_update` values | Complete current memory `m_{t+1}` |
+| `memory` | Current segment's `memory_update` | Memory for the current segment only; empty when the segment has no memory |
 | `episode_success` | `success` | Episode success label |
 | `episode_overall_speed` | `metadata.overall_speed` | 500-step-binned episode length |
 | `episode_overall_quality` | `metadata.overall_quality` | Human quality score from 1 to 5 |

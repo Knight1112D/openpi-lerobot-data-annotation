@@ -150,8 +150,7 @@ def resolve_frame(item: dict, fps: object, frame_key: str, seconds_key: str, lab
 
 
 def materialize_memory_segments(segments: list[dict]) -> list[dict]:
-    """将 memory_update 拼接为完整 memory / Expand memory updates into complete memories."""
-    previous = ""
+    """把每段 memory_update 解析为当前段的 memory，不累加也不继承历史。"""
     materialized: list[dict] = []
     for index, segment in enumerate(segments):
         has_memory = "memory" in segment
@@ -162,16 +161,15 @@ def materialize_memory_segments(segments: list[dict]) -> list[dict]:
             )
         if has_update:
             update = segment["memory_update"]
-            require_english(update, f"segments[{index}].memory_update")
-            current = f"{previous} {update.strip()}".strip()
+            require_english(update, f"segments[{index}].memory_update", allow_empty=True)
+            current = update.strip()
         else:
-            require_english(segment["memory"], f"segments[{index}].memory")
+            require_english(segment["memory"], f"segments[{index}].memory", allow_empty=True)
             current = segment["memory"].strip()
         normalized = dict(segment)
         normalized.pop("memory_update", None)
         normalized["memory"] = current
         materialized.append(normalized)
-        previous = current
     return materialized
 
 

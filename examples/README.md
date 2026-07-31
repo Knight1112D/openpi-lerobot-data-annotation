@@ -53,7 +53,7 @@ Insert the Ethernet cable into the adapter.
 
 ### `segments[].memory_update`
 
-Write only the new useful memory fact for the current stage. During propagation, the tool concatenates the previous complete memory and this update into the materialized `memory` field.
+Write the memory that belongs to the current stage. During propagation, the tool writes only the current segment's value to its frames; it does not concatenate all historical text into a global `memory`. If there is no memory, leave the update empty and the materialized value is empty.
 
 The update can be represented as:
 
@@ -61,7 +61,7 @@ The update can be represented as:
 m_{t+1} = Planner(o_t, g, l_0...l_t, success_history, m_t)
 ```
 
-The next segment uses the previous materialized `memory` as historical memory `m_t`, so no separate `m_t` field is needed in the JSON. The first segment's `memory_update` describes the initial state.
+The next segment can use the previous materialized `memory` as historical memory `m_t`, so no separate `m_t` field is needed in the JSON. The first segment's `memory_update` describes the initial state.
 
 If a new state invalidates an old fact, use the optional full `memory` field for that segment to replace the accumulated text.
 

@@ -10,7 +10,7 @@
 - `metadata.overall_speed`：根据 episode 的实际 timestep 长度按 500 steps 自动计算；人工标注时可以省略或填写 `null`，例如 1750 到 2250 steps（含边界）会自动标记为 `"2000 steps"`。
 - `metadata.overall_quality`：人工填写的 episode 质量分数，范围为 1–5，5 代表质量最高。
 - `response`：当前关键帧开始执行的子任务 `l_t`，使用可执行英文短句。
-- `memory_update`：当前阶段新增的记忆事实；传播时会自动和前面内容拼接成完整 `memory`。
+- `memory_update`：当前阶段的 memory 内容；传播时只把当前段的 memory 传播到对应帧，不和前面段落累加成全局 memory。当前段没有 memory 时保持为空。
 - `segments[].mistake`：当前 action segment 是否发生错误；发生填写 `1`，没有填写 `0`。传播后会成为逐帧 `mistake` 字段。
 - `segments`：可以有多个关键帧段；手工填写 `time_seconds`，传播时按 `fps` 自动转换成 `frame_index`。
 - 每个 episode 的标准格式只能有一个 `"segments"` 数组。旧标注文件如果把每一段错误地写成重复的 `"segments"` 键，校验和传播脚本会按原顺序合并，避免 JSON 解析时后面的键覆盖前面的段；新生成的标注文件会统一写成单个数组。
