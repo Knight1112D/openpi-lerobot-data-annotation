@@ -136,6 +136,16 @@ The converter calculates `frame_index = round(time_seconds * fps)`. You may stil
 
 The canonical format contains one `"segments"` array in each episode. Older annotation files may contain several duplicate `"segments"` keys in the same episode; the validator and propagator merge those arrays in their original order so that no segment is silently lost. Newly generated annotation files always use the canonical single-array format.
 
+To permanently repair a legacy file before editing or committing it, run:
+
+```bash
+bash scripts/run.sh normalize \
+  --input /path/to/legacy_annotations.json \
+  --output /path/to/annotations.canonical.json
+```
+
+This command writes valid JSON with exactly one `"segments"` array per episode. `validate` and `propagate` also accept the legacy form directly, but the canonical output should be used for all shared datasets and pull requests.
+
 Good keyframes include:
 
 - a grasp has become established;

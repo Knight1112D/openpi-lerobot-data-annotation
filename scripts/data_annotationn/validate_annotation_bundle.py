@@ -12,6 +12,8 @@ import math
 import re
 from pathlib import Path
 
+from annotation_io import read_annotation_bundle
+
 ENGLISH_TEXT = re.compile(r"^[\x09\x0a\x0d\x20-\x7e]*$")
 REQUIRED_MATERIALIZED = {
     "response",
@@ -45,34 +47,6 @@ def parse_args() -> argparse.Namespace:
 def read_jsonl(path: Path) -> list[dict]:
     """读取 JSONL 文件 / Read a JSONL file."""
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-
-
-def _merge_duplicate_segment_keys(pairs: list[tuple[str, object]]) -> dict:
-    """合并同一 episode 中重复出现的 ``segments`` 键。
-
-    部分旧标注文件把每个 segment 写成了一个独立的 ``"segments"`` 键。
-    按 JSON 标准直接解析时，后面的键会覆盖前面的键，导致只剩最后一个
-    segment。这里仅对 ``segments`` 列表做追加合并，其他键保持标准 JSON
-    的最后值语义，避免静默改变普通字段。
-    """
-    result: dict[str, object] = {}
-    for key, value in pairs:
-        if key == "segments" and key in result:
-            previous = result[key]
-            if not isinstance(previous, list) or not isinstance(value, list):
-                raise ValueError("重复的 segments 键必须都对应 JSON 数组")
-            previous.extend(value)
-        else:
-            result[key] = value
-    return result
-
-
-def read_annotation_bundle(path: Path) -> dict:
-    """读取标注 bundle，并兼容重复 ``segments`` 键的旧 JSON。"""
-    return json.loads(
-        path.read_text(encoding="utf-8"),
-        object_pairs_hook=_merge_duplicate_segment_keys,
-    )
 
 
 def require_english(value: object, label: str, allow_empty: bool = False) -> None:

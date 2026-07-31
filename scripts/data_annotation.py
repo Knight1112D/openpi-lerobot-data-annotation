@@ -51,6 +51,14 @@ def build_parser() -> argparse.ArgumentParser:
     template.add_argument("--dataset-root", type=Path, required=True)
     template.add_argument("--output", type=Path, required=True)
 
+    normalize = subparsers.add_parser(
+        "normalize",
+        help="规范化旧标注 JSON / Canonicalize legacy annotation JSON",
+    )
+    normalize.add_argument("--input", type=Path, required=True)
+    normalize.add_argument("--output", type=Path, required=True)
+    normalize.add_argument("--overwrite", action="store_true")
+
     validate = subparsers.add_parser("validate", help="验证稀疏标注 / Validate sparse annotations")
     add_common_arguments(validate)
     validate.add_argument("--allow-missing", action="store_true")
@@ -96,6 +104,11 @@ def main() -> None:
             "make_annotation_template.py",
             ["--dataset-root", str(args.dataset_root), "--output", str(args.output)],
         )
+    elif args.command == "normalize":
+        command = ["--input", str(args.input), "--output", str(args.output)]
+        if args.overwrite:
+            command.append("--overwrite")
+        run_skill_script("normalize_annotations.py", command)
     elif args.command == "validate":
         command = [
             "--dataset-root",
